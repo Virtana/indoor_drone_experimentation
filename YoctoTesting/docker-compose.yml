@@ -1,0 +1,11 @@
+version: "2"
+services:
+  yocoto-dev-enviroment:
+    build: .
+    # network_mode: bridge
+    volumes:
+      - ./yocto-dev-env:/yocto-dev-environment/
+    working_dir: /yocto-dev-environment
+    command: sh -c "tail -f /dev/null"
+    # environment:
+    #   - DEBIAN_FRONTEND=noninteractive
