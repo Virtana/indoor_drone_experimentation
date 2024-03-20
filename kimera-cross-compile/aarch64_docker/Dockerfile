@@ -36,10 +36,18 @@ RUN apt-get update && apt-get install -y libboost-all-dev
 
 # Cross-compile boost v 1.65
 RUN wget https://boostorg.jfrog.io/artifactory/main/release/1.65.0/source/boost_1_65_0.tar.gz .
-RUN tar -xvf boost_1_65_0.tar.gz && \
-    cd boost_1_65_0 && \
-    mkdir build
+RUN tar -xvf boost_1_65_0.tar.gz
+# Need to install Boost.Build to facilitate cross compiling
+WORKDIR ${DIRPATH}/boost_1_65_0/tools/build
+RUN ./bootstrap.sh
+RUN b2 install --prefix=/usr/local/
 
+WORKDIR ${DIRPATH} 
+COPY user-config.jam /root/user-config.jam
+WORKDIR ${DIRPATH}/boost_1_65_0
+RUN mkdir build
+RUN b2 --build-dir=/build toolset=gcc-arm stage
+RUN b2 install 
 
 # Cross-compile GTSAM 
 
