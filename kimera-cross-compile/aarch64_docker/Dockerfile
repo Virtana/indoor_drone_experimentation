@@ -34,15 +34,26 @@ RUN apt install -y perl
 # GTSAM deps
 RUN apt-get update && apt-get install -y libboost-all-dev
 
-# # OpenCV deps
-RUN apt-get update && apt-get install -y \
-      build-essential cmake unzip pkg-config \
-      libjpeg-dev libpng-dev libtiff-dev \
-      libvtk6-dev \
-      libgtk-3-dev \
-      libatlas-base-dev gfortran
+# Cross-compile boost v 1.65
+RUN wget https://boostorg.jfrog.io/artifactory/main/release/1.65.0/source/boost_1_65_0.tar.gz .
+RUN tar -xvf boost_1_65_0.tar.gz && \
+    cd boost_1_65_0 && \
+    mkdir build
 
-# # Cross-compiling CMake
+
+# Cross-compile GTSAM 
+
+# # OpenCV deps
+# Install OpenCV deps from ArchLinux binaries?
+# Cross compile OpenCV 4.6
+
+# RUN apt-get update && apt-get install -y \
+#       build-essential cmake unzip pkg-config \
+#       libjpeg-dev libpng-dev libtiff-dev \
+#       libvtk6-dev \
+#       libgtk-3-dev \
+#       libatlas-base-dev gfortran
+
 # RUN git clone https://github.com/opencv/opencv.git
 # RUN cd opencv && \
 #       git checkout tags/3.3.1 && \
