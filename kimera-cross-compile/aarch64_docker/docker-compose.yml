@@ -1,0 +1,7 @@
+services:
+  cross-compiler:
+    build: . 
+    volumes:
+      - /home/sarika/cc_kimera:/cc_kimera
+    working_dir: /cc_kimera
+    command: sh -c "tail -f /dev/null"
