@@ -1,0 +1,3 @@
+[submodule "kernel_dev_testing/kernel/linux-compulab"]
+	path = kernel_dev_testing/kernel/linux-compulab
+	url = https://github.com/Virtana/linux-compulab
