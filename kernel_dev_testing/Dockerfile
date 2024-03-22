@@ -17,8 +17,6 @@ ENV MACHINE=ucm-imx93
 
 RUN apt -y install git
 
-# RUN git clone -b linux-compulab_v6.1.22 https://github.com/compulab-yokneam/linux-compulab.git
-
 # Dependencies for kernel build
 # See https://wiki.ubuntu.com/Kernel/BuildYourOwnKernel
 RUN apt -y install libncurses-dev
