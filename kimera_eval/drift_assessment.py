@@ -6,6 +6,8 @@ import os
 import pandas as pd
 import sys
 
+DEBUG = False
+
 # Helper functions
 def euclidean_dist(val1, val2) -> int:
     """
@@ -24,7 +26,9 @@ print(f"gt file: {gt_filepath}; vio file: {vio_filepath}")
 gt_df = pd.read_csv(gt_filepath)
 vio_df = pd.read_csv(vio_filepath)
 
+# -----------------------------------------------------------------
 # Comparing x, y and z state estimates to ground truth over time.
+# -----------------------------------------------------------------
 plt.figure()
 plt.subplot(3, 1, 1)
 plt.plot(gt_df["#timestamp"], gt_df["x"])
@@ -48,16 +52,14 @@ plt.title("z over time")
 plt.legend(["gt", "vio"])
 plt.grid()
 
-# plt.show()
-
-# Comparing room ground truth vs state estimate
-
 # ------------------------------------------------
 # Comparing error over distance travelled
 # ------------------------------------------------
 # Getting starting timestamp for state updates
 start_ts = vio_df['#timestamp'].iloc[0]
-print(f"Start ts: {start_ts}")
+
+if DEBUG:
+    print(f"Start ts: {start_ts}")
 
 # Finding the corresponding ground truth timestamp and position.
 curr_gt_index = gt_df[gt_df['#timestamp'] == start_ts].index[0]
@@ -65,7 +67,6 @@ curr_gt_index = gt_df[gt_df['#timestamp'] == start_ts].index[0]
 # Starting value
 last_gt_pos = gt_df.loc[curr_gt_index, ['x', 'y', 'z']].tolist()
 
-#-----------
 # Generating an array with the total distance travelled up to every single point from our "start" value
 # We will be comparing the error against the total distance travelled (rather than displacement).
 total_dist = 0 # we get the total distance travelled up to that point
@@ -89,12 +90,6 @@ for i in range(curr_gt_index, len(gt_df)-1):
 dist_travelled_df = pd.DataFrame(dist_update, columns=['gt_index', 'distance'])
 dist_travelled_df.to_csv("distance_travelled.csv")
 
-# Testing logic
-# dist_index = dist_travelled_df[dist_travelled_df['gt_index'] == 356].index[0]
-# distance = dist_travelled_df.loc[dist_index, 'distance']
-
-# print(f"distance: {distance}")
-
 # -------------
 # Iterating through the vio data frame
 
@@ -105,13 +100,15 @@ for ind in vio_df.index:
     curr_vio_ts = vio_df['#timestamp'].iloc[ind]
     curr_vio_pos = vio_df.loc[ind, ['x', 'y', 'z']].tolist()
 
-    print(f"Current gt index: {curr_gt_index}; value={gt_df.loc[curr_gt_index, ['x', 'y', 'z']].tolist()}")
-    print(f"vio ts: {curr_vio_ts}; pos: {curr_vio_pos}")
+    if DEBUG:
+        print(f"Current gt index: {curr_gt_index}; value={gt_df.loc[curr_gt_index, ['x', 'y', 'z']].tolist()}")
+        print(f"vio ts: {curr_vio_ts}; pos: {curr_vio_pos}")
 
     # Ground truth info for corresponding ts (calculated on previous iteration)
     gt_pos = gt_df.loc[curr_gt_index, ['x', 'y', 'z']].tolist()
 
-    print(f"State estimate error: {euclidean_dist(gt_pos, curr_vio_pos)}")
+    if DEBUG:
+        print(f"State estimate error: {euclidean_dist(gt_pos, curr_vio_pos)}")
 
     estimate_error = euclidean_dist(gt_pos, curr_vio_pos)
 
@@ -156,7 +153,8 @@ for ind in vio_df.index:
     # our new gt index is one less than the value that breaks us out of the while loop
     curr_gt_index = next_gt_ind - 1
 
-    print(f"Min ts_diff: {min_ts_diff}")
+    if DEBUG:
+        print(f"Min ts_diff: {min_ts_diff}")
     curr_gt_index = min_ts_index # Updating curr_gt_index for the next iteration
     
 error_df = pd.DataFrame(error_calcs, columns=['vio_ts', 'gt_pos', 'vio_pos', 'distance', 'error', 'percent_err'])
