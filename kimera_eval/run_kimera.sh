@@ -24,20 +24,16 @@ function update_log_state () {
 function update_ds_path () {
     sed -i "s|^DATASET_PATH=.*|DATASET_PATH=$1|" "$KIMERA_SCRIPT"
 }
-# update_ds_path "\/home\/root\/V1_01_easy"
 
 function update_output_path () {
     sed -i "s|^OUTPUT_PATH=.*|OUTPUT_PATH=$1|" "$KIMERA_SCRIPT"
 }
-# update_output_path "\"..\/output_logs_orb\""
 
 function configure_script () {
     update_ds_path $1
     update_log_state $2
     update_output_path $3
 }
-
-# configure_script "\/home\/root\/V1_02_easy" 1 "\"..\/output_logs_v2_easy\""
 
 function update_yaml_num () {
     # This function can be used to update the number value for a field 
@@ -52,48 +48,70 @@ function update_frontend_num () {
     update_yaml_num $FRONTEND_CONF $1 $2
 }
 
-# function update_maxfeatures () {
-#     update_frontend_num maxFeaturesPerFrame $1  
-# }
-
-# update_maxfeatures 250
-
 # First value for all arrays is the default
 max_features=( 300 ) #250 200 150 100 )
 feat_type_num=( 3 0 1 )
 feat_type_name=( GFTT FAST ORB )
 max_age=( 25 20 15 10 )
+declare -A feat_type
+feat_type[3]="GFTT"
+feat_type[0]="FAST"
+feat_type[1]="ORB"
 
-for value in "${max_features[@]}"
+function run_tests () {
+    # This function runs the tests after the frontend/backend config changes 
+    # are made. The input include the dataset of interest and the output path
+    # for storing all logs/results.
+
+    # $ds_path=$1
+    # $log_path=$2
+    mkdir -p $2
+    configure_script $1 0 $2
+
+    # Run script and save terminal log 
+    $KIMERA_SCRIPT >> ${2}/terminal.log 2>&1
+
+    # Run script + save cpu use
+    /usr/bin/time -v $KIMERA_SCRIPT 2> ${2}/time.log
+    
+    # Run script and do not save terminal logs; save gt and traj logs
+    configure_script $1 1 $2
+    $KIMERA_SCRIPT
+
+    # tar output logs
+    tar -cvf ${2}.tar.gz ${2}
+    rm -rf $2
+}
+
+# For a single VIO config, test with multiple datasets
+for ds in "${DATASETS[@]}"
 do
-    # Update the max feature value
-    update_frontend_num maxFeaturesPerFrame $value
-
-    # For a single VIO config, test with multiple datasets
-    for ds in "${DATASETS[@]}"
+    ds_path=${HOME_DIR}/$ds
+    
+    # Varying max number front end features
+    for value in "${max_features[@]}"
     do
-        # Configure script for running VIO
-        ds_path=${HOME_DIR}/$ds
+        # Update the max feature value
+        update_frontend_num maxFeaturesPerFrame $value
+        # Generate output path for logs to be saved to
         log_path="${HOME_DIR}/output_logs_max_feat_${value}_${ds}"
-        mkdir -p $log_path
-        configure_script $ds_path 0 $log_path
-
-        # Run script and save terminal log 
-        $KIMERA_SCRIPT >> ${log_path}/terminal.log 2>&1
-
-        # Run script + save cpu use
-        /usr/bin/time -v $KIMERA_SCRIPT 2> ${log_path}/time.log
         
-        # Run script and do not save terminal logs
-        configure_script $ds_path 1 $log_path
-        $KIMERA_SCRIPT
-
-        # tar output logs
-        tar -cvf ${log_path}.tar.gz ${log_path}
-        rm -rf $log_path
+        # Run tests and save data
+        run_tests ${ds_path} ${log_path}
     done
+    # Reset to default at the end
+    update_frontend_num maxFeaturesPerFrame ${max_features[0]}
 
-    # Run Kimera without logging, for each dataset, with 
+    # Varying the feature type
+    for key in "${feat_type[@]}"
+    do
+        update_frontend_num feature_detector_type $feat_type[$key]
+        log_path="${HOME_DIR}/output_logs_type_${key}_${ds}"
+
+        run_tests ${ds_path} ${log_path}
+    done    
+    # Reset to default
+    update_frontend_num feature_detector_type $feat_type["GFTT"]
 done
 
 # Updating backend configs
