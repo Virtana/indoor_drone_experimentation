@@ -92,7 +92,13 @@ feat_type[1]="ORB"
 
 # Backend config options
 #-----------------------------
+declare -A linearization_modes
+linearization_modes[0]="hessian"
+linearization_modes[1]="implicit_schur"
+linearization_modes[2]="jacobian_q"
+linearization_modes[3]="jacobian_svd"
 
+horizon=( 6 5 4 3 ) # in seconds
 
 # For a single VIO config, test with multiple datasets
 for ds in "${DATASETS[@]}"
@@ -127,7 +133,7 @@ do
         run_tests ${ds_path} ${log_path}
         # echo ${feat_type[$key]}
         # echo ${key}
-    done    
+    done
     # Reset to default
     update_frontend_num feature_detector_type 3
 
@@ -144,7 +150,24 @@ do
     # -------------------------------------------
     #          BACKEND CONFIG CHANGES
     # -------------------------------------------
-    # Varying the 
+    # Varying the linearizationMode
+    for key in "${!linearization_modes[@]}"
+    do
+        update_backend_num linearizationMode ${key}
+        log_path="${HOME_DIR}/output_logs_linmode_${linearization_modes[$key]}_${ds}"
+
+        run_tests ${ds_path} ${log_path}
+    done
+    update_backend_num linearizationMode 0 #default
+
+    for value in "${horizon[@]}"
+    do
+        update_backend_num horizon $value
+        log_path="${HOME_DIR}/output_logs_horizon_${value}_${ds}"
+
+        run_tests ${ds_path} ${log_path}
+    done
+    update_backend_num horizon ${horizon[0]}
 done
 
 # Updating backend configs
