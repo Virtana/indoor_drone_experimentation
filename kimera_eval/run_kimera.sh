@@ -6,6 +6,7 @@ HOME_DIR='/home/root'
 KIMERA_DIR=${HOME_DIR}/Kimera-VIO
 PARAMS_DIR=${KIMERA_DIR}/params/EurocMono
 FRONTEND_CONF=${PARAMS_DIR}/FrontendParams.yaml
+BACKEND_CONF=${PARAMS_DIR}/BackendParams.yaml
 KIMERA_SCRIPT=${KIMERA_DIR}/scripts/stereoVIOEuroc.bash
 # FRONTEND_CONF='params/FrontendParams.yaml'
 
@@ -48,15 +49,10 @@ function update_frontend_num () {
     update_yaml_num $FRONTEND_CONF $1 $2
 }
 
-# First value for all arrays is the default
-max_features=( 300 ) #250 200 150 100 )
-feat_type_num=( 3 0 1 )
-feat_type_name=( GFTT FAST ORB )
-max_age=( 25 20 15 10 )
-declare -A feat_type
-feat_type[3]="GFTT"
-feat_type[0]="FAST"
-feat_type[1]="ORB"
+function update_backend_num () {
+    # $1 is field name, $2 is field value
+    update_yaml_num $BACKEND_CONF $1 $2
+}
 
 function run_tests () {
     # This function runs the tests after the frontend/backend config changes 
@@ -83,11 +79,29 @@ function run_tests () {
     rm -rf $2
 }
 
+# Frontend config options
+#----------------------------
+# First value for all arrays is the default
+max_features=( 300 250 200 150 100 )
+max_age=( 25 20 15 10 )
+
+declare -A feat_type
+feat_type[3]="GFTT"
+feat_type[0]="FAST"
+feat_type[1]="ORB"
+
+# Backend config options
+#-----------------------------
+
+
 # For a single VIO config, test with multiple datasets
 for ds in "${DATASETS[@]}"
 do
     ds_path=${HOME_DIR}/$ds
-    
+
+    # -------------------------------------------
+    #          FRONTEND CONFIG CHANGES
+    # -------------------------------------------
     # Varying max number front end features
     for value in "${max_features[@]}"
     do
@@ -102,16 +116,35 @@ do
     # Reset to default at the end
     update_frontend_num maxFeaturesPerFrame ${max_features[0]}
 
+    echo ${max_features[0]}
+
     # Varying the feature type
-    for key in "${feat_type[@]}"
+    for key in "${!feat_type[@]}"
     do
-        update_frontend_num feature_detector_type $feat_type[$key]
-        log_path="${HOME_DIR}/output_logs_type_${key}_${ds}"
+        update_frontend_num feature_detector_type ${key}
+        log_path="${HOME_DIR}/output_logs_type_${feat_type[$key]}_${ds}"
 
         run_tests ${ds_path} ${log_path}
+        # echo ${feat_type[$key]}
+        # echo ${key}
     done    
     # Reset to default
-    update_frontend_num feature_detector_type $feat_type["GFTT"]
+    update_frontend_num feature_detector_type 3
+
+    # Varying the maxFeatureAge
+    for value in "${max_age[@]}"
+    do
+        update_frontend_num maxFeatureAge $value
+        log_path="${HOME_DIR}/output_logs_max_age_${value}_${ds}"
+
+        run_tests ${ds_path} ${log_path}
+    done
+    update_frontend_num maxFeatureAge ${max_age[0]}
+
+    # -------------------------------------------
+    #          BACKEND CONFIG CHANGES
+    # -------------------------------------------
+    # Varying the 
 done
 
 # Updating backend configs
