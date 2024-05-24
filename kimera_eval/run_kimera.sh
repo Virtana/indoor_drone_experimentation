@@ -99,10 +99,11 @@ horizon=( 6 5 4 3 ) # in seconds
 for ds in "${DATASETS[@]}"
 do
     ds_path=${HOME_DIR}/$ds
-
+    echo "------------------- DATASET: ${ds} ----------------------"
     # -------------------------------------------
     #          FRONTEND CONFIG CHANGES
     # -------------------------------------------
+    echo "---------------------MAX FEATURES----------------------------"
     # Varying max number front end features
     for value in "${max_features[@]}"
     do
@@ -117,6 +118,7 @@ do
     # Reset to default at the end
     update_frontend_num maxFeaturesPerFrame ${max_features[0]}
 
+    echo "----------------------FEATURE TYPE---------------------------"
     # Varying the feature type
     for key in "${!feat_type[@]}"
     do
@@ -128,6 +130,7 @@ do
     # Reset to default
     update_frontend_num feature_detector_type 3
 
+    echo "------------------------MAX AGE------------------------------"
     # Varying the maxFeatureAge
     for value in "${max_age[@]}"
     do
@@ -141,6 +144,7 @@ do
     # -------------------------------------------
     #          BACKEND CONFIG CHANGES
     # -------------------------------------------
+    echo "------------------LINERIZATION MODE--------------------------"
     # Varying the linearizationMode
     for key in "${!linearization_modes[@]}"
     do
@@ -150,6 +154,7 @@ do
     done
     update_backend_num linearizationMode 0 #default
 
+    echo "------------------------HORIZON--------------------------------"
     for value in "${horizon[@]}"
     do
         update_backend_num horizon $value
