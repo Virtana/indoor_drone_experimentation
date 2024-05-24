@@ -8,19 +8,17 @@ PARAMS_DIR=${KIMERA_DIR}/params/EurocMono
 FRONTEND_CONF=${PARAMS_DIR}/FrontendParams.yaml
 BACKEND_CONF=${PARAMS_DIR}/BackendParams.yaml
 KIMERA_SCRIPT=${KIMERA_DIR}/scripts/stereoVIOEuroc.bash
-# FRONTEND_CONF='params/FrontendParams.yaml'
+# BACKEND_CONF='params/BackendParams.yaml'
 
-DATASETS=( "V1_01_easy" ) #"V1_02_easy" "V1_01_medium" )
+DATASETS=( "V1_01_easy" "V1_02_easy" "V1_01_medium" )
 
 # ---------------------------------
 # Helper functions
 #----------------------------------
-
 # Updating stereoVIOEuroc.bash
 function update_log_state () {
     sed -i "s/^LOG_OUTPUT=[0-9]\+$/LOG_OUTPUT=$1/" $KIMERA_SCRIPT
 }
-# update_log_state 0 
 
 function update_ds_path () {
     sed -i "s|^DATASET_PATH=.*|DATASET_PATH=$1|" "$KIMERA_SCRIPT"
@@ -58,9 +56,6 @@ function run_tests () {
     # This function runs the tests after the frontend/backend config changes 
     # are made. The input include the dataset of interest and the output path
     # for storing all logs/results.
-
-    # $ds_path=$1
-    # $log_path=$2
     mkdir -p $2
     configure_script $1 0 $2
 
@@ -93,10 +88,10 @@ feat_type[1]="ORB"
 # Backend config options
 #-----------------------------
 declare -A linearization_modes
-linearization_modes[0]="hessian"
-linearization_modes[1]="implicit_schur"
-linearization_modes[2]="jacobian_q"
 linearization_modes[3]="jacobian_svd"
+linearization_modes[2]="jacobian_q"
+linearization_modes[1]="implicit_schur"
+linearization_modes[0]="hessian"
 
 horizon=( 6 5 4 3 ) # in seconds
 
@@ -122,8 +117,6 @@ do
     # Reset to default at the end
     update_frontend_num maxFeaturesPerFrame ${max_features[0]}
 
-    echo ${max_features[0]}
-
     # Varying the feature type
     for key in "${!feat_type[@]}"
     do
@@ -131,8 +124,6 @@ do
         log_path="${HOME_DIR}/output_logs_type_${feat_type[$key]}_${ds}"
 
         run_tests ${ds_path} ${log_path}
-        # echo ${feat_type[$key]}
-        # echo ${key}
     done
     # Reset to default
     update_frontend_num feature_detector_type 3
@@ -155,7 +146,6 @@ do
     do
         update_backend_num linearizationMode ${key}
         log_path="${HOME_DIR}/output_logs_linmode_${linearization_modes[$key]}_${ds}"
-
         run_tests ${ds_path} ${log_path}
     done
     update_backend_num linearizationMode 0 #default
@@ -164,10 +154,7 @@ do
     do
         update_backend_num horizon $value
         log_path="${HOME_DIR}/output_logs_horizon_${value}_${ds}"
-
         run_tests ${ds_path} ${log_path}
     done
     update_backend_num horizon ${horizon[0]}
 done
-
-# Updating backend configs
