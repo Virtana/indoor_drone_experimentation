@@ -52,6 +52,7 @@ plt.title("z over time")
 plt.legend(["gt", "vio"])
 plt.grid()
 
+plt.savefig(os.path.join(sys.argv[1], "gtvio_xyz.png"))
 # ------------------------------------------------
 # Comparing error over distance travelled
 # ------------------------------------------------
@@ -88,7 +89,7 @@ for i in range(curr_gt_index, len(gt_df)-1):
     dist_update.append(data)
 
 dist_travelled_df = pd.DataFrame(dist_update, columns=['gt_index', 'distance'])
-dist_travelled_df.to_csv("distance_travelled.csv")
+dist_travelled_df.to_csv(os.path.join(sys.argv[1],"distance_travelled.csv"))
 
 # -------------
 # Iterating through the vio data frame
@@ -158,11 +159,22 @@ for ind in vio_df.index:
     curr_gt_index = min_ts_index # Updating curr_gt_index for the next iteration
     
 error_df = pd.DataFrame(error_calcs, columns=['vio_ts', 'gt_pos', 'vio_pos', 'distance', 'error', 'percent_err'])
-error_df.to_csv("drift_error.csv")
+error_df.to_csv(os.path.join(sys.argv[1],"drift_error.csv"))
 
 plt.figure()
 plt.plot(error_df["distance"], error_df["percent_err"])
 plt.xlabel("Distance travelled (m)")
 plt.ylabel("/% Error")
+plt.title("/% Error as distance travelled increases")
 plt.grid()
-plt.show()
+plt.savefig(os.path.join(sys.argv[1], "errpercent_dist.png"))
+
+plt.figure()
+plt.plot(error_df["distance"], error_df["error"])
+plt.xlabel("Distance travelled (m)")
+plt.ylabel("Error (m)")
+plt.title("Error as distance travelled increases")
+plt.grid()
+plt.savefig(os.path.join(sys.argv[1], "errvsdist.png"))
+
+# plt.show()
