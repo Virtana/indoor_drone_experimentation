@@ -46,9 +46,6 @@ def match_gt_vio_ts(gt_df, vio_df, start_gt_index, vio_index) -> int:
         next_gt_ind += 1
         ts_diff = abs(vio_ts - gt_df['#timestamp'].iloc[next_gt_ind])
 
-    # # our corresponding gt index is one less than the value that breaks us out of the while loop
-    # curr_gt_index = next_gt_ind - 1
-
     if DEBUG:
         print(f"Min ts_diff: {min_ts_diff}")
     return min_ts_index # Updating curr_gt_index for the next iteration
@@ -131,6 +128,7 @@ dist_travelled_df.to_csv(os.path.join(sys.argv[1],"distance_travelled.csv"))
 # Iterating through the vio data frame
 
 error_calcs = [] # empty list to which values will be added
+num_vio_ind=len(vio_df.index)
 
 for ind in vio_df.index:
     # For our current vio 
@@ -164,6 +162,9 @@ for ind in vio_df.index:
     error_calcs.append(data)
 
     # Getting the corresponding gt_ts/index for the next iteration of the loop
+    if (ind+1) >= num_vio_ind: # No next value
+        break
+
     curr_gt_index=match_gt_vio_ts(gt_df, vio_df, start_gt_index=curr_gt_index, vio_index=ind+1)
     
 error_df = pd.DataFrame(error_calcs, columns=['vio_ts', 'gt_pos', 'vio_pos', 'distance', 'error', 'percent_err'])
