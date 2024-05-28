@@ -10,7 +10,7 @@ BACKEND_CONF=${PARAMS_DIR}/BackendParams.yaml
 KIMERA_SCRIPT=${KIMERA_DIR}/scripts/stereoVIOEuroc.bash
 # BACKEND_CONF='params/BackendParams.yaml'
 
-DATASETS=( "V2_01_easy" "V1_02_medium" ) #"V1_01_easy"
+DATASETS=( "V1_01_easy" "V2_01_easy") # "V1_02_medium" )
 
 # ---------------------------------
 # Helper functions
@@ -162,4 +162,15 @@ do
         run_tests ${ds_path} ${log_path}
     done
     update_backend_num horizon ${horizon[0]}
+
+    # --------------------------------------------------------------------
+    # Testing with Optimized case based on results from the previous tests
+    # --------------------------------------------------------------------
+    # update_frontend_num feature_detector_type 0 # FAST
+    # update_frontend_num maxFeatureAge 15
+    # update_frontend_num maxFeaturesPerFrame 200
+    # update_backend_num linearizationMode 1 # implicit schur
+
+    # log_path="${HOME_DIR}/output_logs_FAST_schur_maxfeat200_maxage15_${ds}"
+    # run_tests ${ds_path} ${log_path}
 done
