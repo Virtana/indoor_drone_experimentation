@@ -10,7 +10,7 @@ BACKEND_CONF=${PARAMS_DIR}/BackendParams.yaml
 KIMERA_SCRIPT=${KIMERA_DIR}/scripts/stereoVIOEuroc.bash
 # BACKEND_CONF='params/BackendParams.yaml'
 
-DATASETS=( "V1_01_easy" "V2_01_easy") # "V1_02_medium" )
+DATASETS=( "V1_01_easy" "V2_01_easy" "V1_02_medium" )
 
 # ---------------------------------
 # Helper functions
@@ -95,6 +95,13 @@ linearization_modes[0]="hessian"
 
 horizon=( 6 5 4 3 ) # in seconds
 
+# Before running any tests, reset everything we are changing to the default values.
+update_frontend_num maxFeaturesPerFrame ${max_features[0]}
+update_frontend_num feature_detector_type 3
+update_frontend_num maxFeatureAge ${max_age[0]}
+update_backend_num linearizationMode 0 #default
+update_backend_num horizon ${horizon[0]}
+
 # For a single VIO config, test with multiple datasets
 for ds in "${DATASETS[@]}"
 do
@@ -166,11 +173,19 @@ do
     # --------------------------------------------------------------------
     # Testing with Optimized case based on results from the previous tests
     # --------------------------------------------------------------------
-    # update_frontend_num feature_detector_type 0 # FAST
-    # update_frontend_num maxFeatureAge 15
-    # update_frontend_num maxFeaturesPerFrame 200
-    # update_backend_num linearizationMode 1 # implicit schur
+    update_frontend_num feature_detector_type 0 # FAST
+    update_frontend_num maxFeatureAge 15
+    update_frontend_num maxFeaturesPerFrame 200
+    update_backend_num linearizationMode 1 # implicit schur
 
-    # log_path="${HOME_DIR}/output_logs_FAST_schur_maxfeat200_maxage15_${ds}"
-    # run_tests ${ds_path} ${log_path}
+    log_path="${HOME_DIR}/output_logs_FAST_schur_maxfeat200_maxage15_${ds}"
+    run_tests ${ds_path} ${log_path}
+
+    update_frontend_num feature_detector_type 0 # FAST
+    update_frontend_num maxFeatureAge 15
+    update_frontend_num maxFeaturesPerFrame 100
+    update_backend_num linearizationMode 1 # implicit schur
+
+    log_path="${HOME_DIR}/output_logs_FAST_schur_maxfeat100_maxage15_${ds}"
+    run_tests ${ds_path} ${log_path}
 done
