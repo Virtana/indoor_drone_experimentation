@@ -1,10 +1,12 @@
 #!/bin/bash
 
+IP_ADDR='192.168.100.243'
+
 # Run command on remote machine using ssh
-ssh root@192.168.100.243 'bash -s' < run_kimera.sh
+ssh root@${IP_ADDR} 'bash -s' < run_kimera.sh
 # Copy logs to host machine
-scp 'root@192.168.100.243:/home/root/output*.tar.gz' /home/sarika/indoor_drone_experimentation/kimera_eval/output_logs
+scp "root@${IP_ADDR}:/home/root/output*.tar.gz" /home/sarika/indoor_drone_experimentation/kimera_eval/output_logs
 # Cleanup logs on remote
-ssh root@192.168.100.243 'rm -rf /home/root/output*.tar.gz'
+ssh root@${IP_ADDR} 'rm -rf /home/root/output*.tar.gz'
 
 ./post_process.sh
