@@ -29,4 +29,4 @@ fi
 date=`date | sed 's/ /_/g'`
 cleanup_dir="${search_dir}/output_${date}"
 mkdir ${cleanup_dir}
-mv *.tar.gz ${cleanup_dir}
+mv ${search_dir}/*.tar.gz ${cleanup_dir}
