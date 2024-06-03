@@ -4,7 +4,7 @@
 search_dir="output_logs"
 
 # Find all .tar.gz files and store them in an array
-files=($(find "$search_dir" -type f -name "*.tar.gz"))
+files=($(find "$search_dir" -maxdepth 1 -type f -name "*.tar.gz"))
 
 # Check if any .tar.gz files are found
 if [ ${#files[@]} -eq 0 ]; then
