@@ -17,6 +17,39 @@ def euclidean_dist(val1, val2) -> int:
     distance = np.linalg.norm(np.array(val1)-np.array(val2))
     return distance
 
+def match_gt_vio_ts(gt_df, vio_df, start_gt_index, vio_index) -> int:
+    # ------------------------------------------------------------------------
+    # Getting the corresponding gt_ts/index for the next iteration of the loop
+    # ------------------------------------------------------------------------
+    # Initialise min_ts_diff to something arbitrarily large
+    min_ts_diff = 1000000000000000000
+    # Get corresponding vio_ts
+    vio_ts = vio_df['#timestamp'].iloc[vio_index]
+    
+    # We increment the ground truth index until we find the smallest difference between the
+    # vio ts and the gt ts
+    next_gt_ind = start_gt_index + 1
+    ts_diff = abs(vio_ts - gt_df['#timestamp'].iloc[next_gt_ind])
+    min_ts_index = 0
+
+    #     Rationale: We will always start from a ts earlier than the vio ts.
+    #     As we move towards it, the value will become smaller. A value after our
+    #     ts that is smaller will still be closer. As we move later into the future,
+    #     the difference will increase again. 
+    #     When the diff is 0, this still holds.
+    num_gt_indices = len(gt_df.index)-1
+    while ts_diff < min_ts_diff and next_gt_ind < num_gt_indices:
+        min_ts_diff = ts_diff 
+        min_ts_index = next_gt_ind
+
+        # Updating ts_diff for the next iteration
+        next_gt_ind += 1
+        ts_diff = abs(vio_ts - gt_df['#timestamp'].iloc[next_gt_ind])
+
+    if DEBUG:
+        print(f"Min ts_diff: {min_ts_diff}")
+    return min_ts_index # Updating curr_gt_index for the next iteration
+
 gt_filepath = os.path.join(sys.argv[1], "traj_gt.csv")
 vio_filepath = os.path.join(sys.argv[1], "traj_vio.csv")
 
@@ -52,6 +85,7 @@ plt.title("z over time")
 plt.legend(["gt", "vio"])
 plt.grid()
 
+plt.savefig(os.path.join(sys.argv[1], "gtvio_xyz.png"))
 # ------------------------------------------------
 # Comparing error over distance travelled
 # ------------------------------------------------
@@ -61,8 +95,8 @@ start_ts = vio_df['#timestamp'].iloc[0]
 if DEBUG:
     print(f"Start ts: {start_ts}")
 
-# Finding the corresponding ground truth timestamp and position.
-curr_gt_index = gt_df[gt_df['#timestamp'] == start_ts].index[0]
+# Finding the corresponding ground truth timestamp and position at which to start
+curr_gt_index = match_gt_vio_ts(gt_df, vio_df, 0, 0)
 
 # Starting value
 last_gt_pos = gt_df.loc[curr_gt_index, ['x', 'y', 'z']].tolist()
@@ -88,12 +122,13 @@ for i in range(curr_gt_index, len(gt_df)-1):
     dist_update.append(data)
 
 dist_travelled_df = pd.DataFrame(dist_update, columns=['gt_index', 'distance'])
-dist_travelled_df.to_csv("distance_travelled.csv")
+dist_travelled_df.to_csv(os.path.join(sys.argv[1],"distance_travelled.csv"))
 
 # -------------
 # Iterating through the vio data frame
 
 error_calcs = [] # empty list to which values will be added
+num_vio_ind=len(vio_df.index)
 
 for ind in vio_df.index:
     # For our current vio 
@@ -119,50 +154,36 @@ for ind in vio_df.index:
     except:
         break   #exit loop, since we are probably out of range
 
-    percent_err = (estimate_error/distance)*100
+    if abs(distance) < 0.000001:
+        percent_err = 0
+    else:
+        percent_err = (estimate_error/distance)*100
     data = [curr_vio_ts, gt_pos, curr_vio_pos, distance, estimate_error, percent_err]
     error_calcs.append(data)
 
-    # ------------------------------------------------------------------------
     # Getting the corresponding gt_ts/index for the next iteration of the loop
-    # ------------------------------------------------------------------------
-    # Initialise min_ts_diff to something arbitrarily large
-    min_ts_diff = 1000000000000000000
-    # Get next_vio_ts
-    next_vio_ts = vio_df['#timestamp'].iloc[ind + 1]
-    
-    # We increment the grounf truth index until we find the smallest difference between the
-    # vio ts and the gt ts
-    next_gt_ind = curr_gt_index + 1
-    ts_diff = abs(next_vio_ts - gt_df['#timestamp'].iloc[next_gt_ind])
-    min_ts_index = 0
+    if (ind+1) >= num_vio_ind: # No next value
+        break
 
-    #     Rationale: We will always start from a ts earlier than the vio ts.
-    #     As we move towards it, the value will become smaller. A value after our
-    #     ts that is smaller will still be closer. As we move later into the future,
-    #     the difference will increase again. 
-    #     When the diff is 0, this still holds.
-    while ts_diff < min_ts_diff and next_gt_ind < len(gt_df.index)-1:
-        min_ts_diff = ts_diff 
-        min_ts_index = next_gt_ind
-
-        # Updating ts_diff for the next iteration
-        next_gt_ind += 1
-        ts_diff = abs(next_vio_ts - gt_df['#timestamp'].iloc[next_gt_ind])
-
-    # our new gt index is one less than the value that breaks us out of the while loop
-    curr_gt_index = next_gt_ind - 1
-
-    if DEBUG:
-        print(f"Min ts_diff: {min_ts_diff}")
-    curr_gt_index = min_ts_index # Updating curr_gt_index for the next iteration
+    curr_gt_index=match_gt_vio_ts(gt_df, vio_df, start_gt_index=curr_gt_index, vio_index=ind+1)
     
 error_df = pd.DataFrame(error_calcs, columns=['vio_ts', 'gt_pos', 'vio_pos', 'distance', 'error', 'percent_err'])
-error_df.to_csv("drift_error.csv")
+error_df.to_csv(os.path.join(sys.argv[1],"drift_error.csv"))
 
 plt.figure()
 plt.plot(error_df["distance"], error_df["percent_err"])
 plt.xlabel("Distance travelled (m)")
 plt.ylabel("/% Error")
+plt.title("/% Error as distance travelled increases")
 plt.grid()
-plt.show()
+plt.savefig(os.path.join(sys.argv[1], "errpercent_dist.png"))
+
+plt.figure()
+plt.plot(error_df["distance"], error_df["error"])
+plt.xlabel("Distance travelled (m)")
+plt.ylabel("Error (m)")
+plt.title("Error as distance travelled increases")
+plt.grid()
+plt.savefig(os.path.join(sys.argv[1], "errvsdist.png"))
+
+# plt.show()
