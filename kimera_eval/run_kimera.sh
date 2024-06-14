@@ -9,7 +9,7 @@ FRONTEND_CONF=${PARAMS_DIR}/FrontendParams.yaml
 BACKEND_CONF=${PARAMS_DIR}/BackendParams.yaml
 KIMERA_SCRIPT=${KIMERA_DIR}/scripts/stereoVIOEuroc.bash
 
-DATASETS=( "V1_01_easy" ) # "V2_01_easy" "V1_02_medium" )
+DATASETS=( "V1_01_easy"  "V2_01_easy" "V1_02_medium" )
 
 # ---------------------------------
 # Helper functions
