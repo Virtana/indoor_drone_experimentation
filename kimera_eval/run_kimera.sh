@@ -38,8 +38,6 @@ function enable_lcd () {
 }
 
 function enable_errlogs () {
-    echo "Not implemented yet"
-    #--logtostderr=1
     if [[ "$1" = true ]]; then
         sed -i "s|^--logtostderr=.*|--logtostderr=1|" "$KIMERA_SCRIPT"
     elif [[ "$1" = false ]]; then
