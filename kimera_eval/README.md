@@ -44,9 +44,9 @@ bash yamelize.bash -p PATH_TO_YOUR_EUROC_DATASET
 ```
 4. The datasets can be set in the `DATASETS` variable. We assume the following are used: "V1_01_easy", "V2_01_easy", "V1_02_medium".
 
-To run `collect.sh`, you will need to update the `IP_ADDR` to match that of your SoM's IP address. To get this, run `ifconfig` when connected over serial. 
+To run `collect.sh`, you will need to specify your SoM's IP address. To get this, run `ifconfig` when connected to the SoM over serial. 
 
 ```
 cd /path/to/indoor_drone_experimentation/kimera_eval
-./collect.sh
+./collect.sh <IP Address>
 ```
