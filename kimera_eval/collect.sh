@@ -1,6 +1,6 @@
 #!/bin/bash
 
-IP_ADDR='192.168.100.243'
+IP_ADDR=$1
 
 # Run command on remote machine using ssh
 ssh root@${IP_ADDR} 'bash -s' < run_kimera.sh

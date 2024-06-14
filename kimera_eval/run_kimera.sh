@@ -9,7 +9,7 @@ FRONTEND_CONF=${PARAMS_DIR}/FrontendParams.yaml
 BACKEND_CONF=${PARAMS_DIR}/BackendParams.yaml
 KIMERA_SCRIPT=${KIMERA_DIR}/scripts/stereoVIOEuroc.bash
 
-DATASETS=( "V1_01_easy" "V2_01_easy" "V1_02_medium" )
+DATASETS=( "V1_01_easy" ) # "V2_01_easy" "V1_02_medium" )
 
 # ---------------------------------
 # Helper functions
@@ -27,10 +27,34 @@ function update_output_path () {
     sed -i "s|^OUTPUT_PATH=.*|OUTPUT_PATH=$1|" "$KIMERA_SCRIPT"
 }
 
+function enable_lcd () {
+    if [[ "$1" = true ]]; then
+        sed -i "s|^USE_LCD=.*|USE_LCD=1|" "$KIMERA_SCRIPT"
+    elif [[ "$1" = false ]]; then
+        sed -i "s|^USE_LCD=.*|USE_LCD=0|" "$KIMERA_SCRIPT"
+    else
+        echo "Error with LCD option"
+    fi
+}
+
+function enable_errlogs () {
+    echo "Not implemented yet"
+    #--logtostderr=1
+    if [[ "$1" = true ]]; then
+        sed -i "s|^--logtostderr=.*|--logtostderr=1|" "$KIMERA_SCRIPT"
+    elif [[ "$1" = false ]]; then
+        sed -i "s|^--logtostderr=.*|--logtostderr=0|" "$KIMERA_SCRIPT"
+    else
+        echo "Invalid input argument for function enable_errlogs"
+    fi
+}
+
 function configure_script () {
     update_ds_path $1
     update_log_state $2
     update_output_path $3
+    enable_errlogs $4
+    enable_lcd false
 }
 
 function update_yaml_num () {
@@ -56,16 +80,17 @@ function run_tests () {
     # are made. The input include the dataset of interest and the output path
     # for storing all logs/results.
     mkdir -p $2
-    configure_script $1 0 $2
+    configure_script $1 0 $2 true
 
     # Run script and save terminal log 
     $KIMERA_SCRIPT >> ${2}/terminal.log 2>&1
 
     # Run script + save cpu use
+    configure_script $1 0 $2 false
     /usr/bin/time -v $KIMERA_SCRIPT 2> ${2}/time.log
     
     # Run script and do not save terminal logs; save gt and traj logs
-    configure_script $1 1 $2
+    configure_script $1 1 $2 false
     $KIMERA_SCRIPT
 
     # tar output logs
@@ -184,6 +209,7 @@ do
     update_frontend_num maxFeatureAge 15
     update_frontend_num maxFeaturesPerFrame 100
     update_backend_num linearizationMode 1 # implicit schur
+    update_backend_num horizon 6
 
     log_path="${HOME_DIR}/output_logs_FAST_schur_maxfeat100_maxage15_${ds}"
     run_tests ${ds_path} ${log_path}

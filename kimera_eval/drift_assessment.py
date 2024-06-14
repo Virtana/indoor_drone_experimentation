@@ -68,22 +68,24 @@ plt.plot(gt_df["#timestamp"], gt_df["x"])
 plt.plot(vio_df["#timestamp"], vio_df["x"])
 plt.legend(["gt", "vio"])
 plt.title("x over time")
-
-plt.grid()
+plt.grid(True, which='both', linestyle='--')
+plt.minorticks_on()
 
 plt.subplot(3, 1, 2)
 plt.plot(gt_df["#timestamp"], gt_df["y"])
 plt.plot(vio_df["#timestamp"], vio_df["y"])
 plt.title("y over time")
 plt.legend(["gt", "vio"])
-plt.grid()
+plt.grid(True, which='both', linestyle='--')
+plt.minorticks_on()
 
 plt.subplot(3, 1, 3)
 plt.plot(gt_df["#timestamp"], gt_df["z"])
 plt.plot(vio_df["#timestamp"], vio_df["z"])
 plt.title("z over time")
 plt.legend(["gt", "vio"])
-plt.grid()
+plt.grid(True, which='both', linestyle='--')
+plt.minorticks_on()
 
 plt.savefig(os.path.join(sys.argv[1], "gtvio_xyz.png"))
 # ------------------------------------------------
@@ -146,6 +148,9 @@ for ind in vio_df.index:
         print(f"State estimate error: {euclidean_dist(gt_pos, curr_vio_pos)}")
 
     estimate_error = euclidean_dist(gt_pos, curr_vio_pos)
+    x_err = curr_vio_pos[0] - gt_pos[0]
+    y_err = curr_vio_pos[1] - gt_pos[1]
+    z_err = curr_vio_pos[2] - gt_pos[2]
 
     # Getting distance travelled up this this point in the trajectory
     try:
@@ -158,7 +163,7 @@ for ind in vio_df.index:
         percent_err = 0
     else:
         percent_err = (estimate_error/distance)*100
-    data = [curr_vio_ts, gt_pos, curr_vio_pos, distance, estimate_error, percent_err]
+    data = [curr_vio_ts, gt_pos, curr_vio_pos, distance, estimate_error, percent_err, x_err, y_err, z_err]
     error_calcs.append(data)
 
     # Getting the corresponding gt_ts/index for the next iteration of the loop
@@ -167,7 +172,7 @@ for ind in vio_df.index:
 
     curr_gt_index=match_gt_vio_ts(gt_df, vio_df, start_gt_index=curr_gt_index, vio_index=ind+1)
     
-error_df = pd.DataFrame(error_calcs, columns=['vio_ts', 'gt_pos', 'vio_pos', 'distance', 'error', 'percent_err'])
+error_df = pd.DataFrame(error_calcs, columns=['vio_ts', 'gt_pos', 'vio_pos', 'distance', 'error', 'percent_err', 'x_err', 'y_err', 'z_err'])
 error_df.to_csv(os.path.join(sys.argv[1],"drift_error.csv"))
 
 plt.figure()
@@ -186,4 +191,33 @@ plt.title("Error as distance travelled increases")
 plt.grid()
 plt.savefig(os.path.join(sys.argv[1], "errvsdist.png"))
 
-# plt.show()
+# -----------------------------------------------------------------
+# Comparing x, y and z individual error change over time.
+# -----------------------------------------------------------------
+plt.figure()
+plt.subplot(3, 1, 1)
+plt.plot(error_df["distance"], error_df["x_err"])
+# plt.xlabel("distance travelled (m)")
+plt.ylabel("x error (m)")
+plt.title("x error over distance")
+plt.grid(True, which='both', linestyle='--')
+plt.minorticks_on()
+
+plt.subplot(3, 1, 2)
+plt.plot(error_df["distance"], error_df["y_err"])
+# plt.xlabel("distance travelled (m)")
+plt.ylabel("y error (m)")
+plt.title("y error over distance")
+plt.grid(True, which='both', linestyle='--')
+plt.minorticks_on()
+
+plt.subplot(3, 1, 3)
+plt.plot(error_df["distance"], error_df["z_err"])
+# plt.xlabel("distance travelled (m)")
+plt.ylabel("z error (m)")
+plt.title("z error over distance")
+plt.grid(True, which='both', linestyle='--')
+plt.minorticks_on()
+
+plt.savefig(os.path.join(sys.argv[1], "xyz_errs.png"))
+plt.show()
