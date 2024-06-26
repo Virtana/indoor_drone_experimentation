@@ -84,6 +84,7 @@ plt.plot(gt_df["#timestamp"], gt_df["z"])
 plt.plot(vio_df["#timestamp"], vio_df["z"])
 plt.title("z over time")
 plt.legend(["gt", "vio"])
+plt.xlabel("UTC Timestamp")
 plt.grid(True, which='both', linestyle='--')
 plt.minorticks_on()
 
@@ -159,7 +160,7 @@ for ind in vio_df.index:
     except:
         break   #exit loop, since we are probably out of range
 
-    if abs(distance) < 0.000001:
+    if abs(distance) < 0.001:
         percent_err = 0
     else:
         percent_err = (estimate_error/distance)*100
@@ -178,9 +179,10 @@ error_df.to_csv(os.path.join(sys.argv[1],"drift_error.csv"))
 plt.figure()
 plt.plot(error_df["distance"], error_df["percent_err"])
 plt.xlabel("Distance travelled (m)")
-plt.ylabel("/% Error")
-plt.title("/% Error as distance travelled increases")
-plt.grid()
+plt.ylabel("% Error")
+plt.title("% Error as distance travelled increases")
+plt.grid(True, which='both', linestyle='--')
+plt.minorticks_on()
 plt.savefig(os.path.join(sys.argv[1], "errpercent_dist.png"))
 
 plt.figure()
@@ -188,7 +190,8 @@ plt.plot(error_df["distance"], error_df["error"])
 plt.xlabel("Distance travelled (m)")
 plt.ylabel("Error (m)")
 plt.title("Error as distance travelled increases")
-plt.grid()
+plt.grid(True, which='both', linestyle='--')
+plt.minorticks_on()
 plt.savefig(os.path.join(sys.argv[1], "errvsdist.png"))
 
 # -----------------------------------------------------------------
