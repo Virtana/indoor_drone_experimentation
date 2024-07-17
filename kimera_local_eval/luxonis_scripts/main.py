@@ -1,9 +1,9 @@
-# https://docs.luxonis.com/software/depthai/examples/imu_accelerometer_gyroscope/
-# https://github.com/luxonis/depthai-experiments/blob/master/gen2-syncing/host-rgb-depth-sync.py
+# Useful links:
+# - https://docs.luxonis.com/software/depthai/examples/imu_accelerometer_gyroscope/
+# - https://github.com/luxonis/depthai-experiments/blob/master/gen2-syncing/host-rgb-depth-sync.py
 
 
-
-# first, import all necessary modules
+# Imports
 from pathlib import Path
 
 import blobconverter
@@ -12,47 +12,109 @@ import depthai
 import numpy as np
 import os
 
-if __name__ == "__main__":
-    # Start Pipeline Construction.
+from datetime import timedelta
+from depthai_sdk.fps import FPSHandler
+
+
+# Weights to use when blending depth/rgb image (should equal 1.0)
+rgbWeight = 0.4
+depthWeight = 0.6
+
+# Second slowest msg stream is stereo disparity, 45FPS -> ~22ms / 2 -> ~11ms
+MS_THRESHOLD = 11
+
+msgs = dict()
+
+def add_msg(msg, name, ts = None):
+    if ts is None:
+        ts = msg.getTimestamp()
+
+    if not name in msgs:
+        msgs[name] = []
+
+    msgs[name].append((ts, msg))
+
+    synced = {}
+    for name, arr in msgs.items():
+        # Go through all stored messages and calculate the time difference to the target msg.
+        # Then sort these msgs to find a msg that's closest to the target time, and check
+        # whether it's below 17ms which is considered in-sync.
+        diffs = []
+        for i, (msg_ts, msg) in enumerate(arr):
+            diffs.append(abs(msg_ts - ts))
+        if len(diffs) == 0: break
+        diffsSorted = diffs.copy()
+        diffsSorted.sort()
+        dif = diffsSorted[0]
+
+        if dif < timedelta(milliseconds=MS_THRESHOLD):
+            # print(f'Found synced {name} with ts {msg_ts}, target ts {ts}, diff {dif}, location {diffs.index(dif)}')
+            # print(diffs)
+            synced[name] = diffs.index(dif)
+
+
+    if len(synced) == 3: # We have 3 synced msgs (IMU packet + disp + rgb)
+        # print('--------\Synced msgs! Target ts', ts, )
+        # Remove older msgs
+        for name, i in synced.items():
+            msgs[name] = msgs[name][i:]
+        ret = {}
+        for name, arr in msgs.items():
+            ret[name] = arr.pop(0)
+            # print(f'{name} msg ts: {ret[name][0]}, diff {abs(ts - ret[name][0]).microseconds / 1000}ms')
+        return ret
+    return False
+
+
+def updateBlendWeights(percent_rgb):
+    """
+    Update the rgb and depth weights used to blend depth/rgb image
+
+    @param[in] percent_rgb The rgb weight expressed as a percentage (0..100)
+    """
+    global depthWeight
+    global rgbWeight
+    rgbWeight = float(percent_rgb)/100.0
+    depthWeight = 1.0 - rgbWeight
+
+
+def create_pipeline():
     pipeline = depthai.Pipeline()
 
-    # IMU Data
+    # Node for IMU data - We are capturing ACCELEROMETER_RAW and GYROSCOPE_RAW at 100 hz rate.
     imu = pipeline.create(depthai.node.IMU)
-    # enable ACCELEROMETER_RAW and GYROSCOPE_RAW at 100 hz rate
     imu.enableIMUSensor([depthai.IMUSensor.ACCELEROMETER_RAW, depthai.IMUSensor.GYROSCOPE_RAW], 100)
-    # above this threshold packets will be sent in batch of X, if the host is not blocked and USB bandwidth is available
+    # Above this threshold packets will be sent in batch of X, if the host is not blocked and USB bandwidth is available
     imu.setBatchReportThreshold(1)
-    # maximum number of IMU packets in a batch, if it's reached device will block sending until host can receive it
-    # if lower or equal to batchReportThreshold then the sending is always blocking on device
+    # Maximum number of IMU packets in a batch, if it's reached device will block sending until host can receive it
+    # If lower or equal to batchReportThreshold then the sending is always blocking on device
     # useful to reduce device's CPU load  and number of lost packets, if CPU load is high on device side due to multiple nodes
     imu.setMaxBatchReports(10)
-    
     xout_imu = pipeline.create(depthai.node.XLinkOut)
     xout_imu.setStreamName("imu")
     # Link plugins IMU -> XLINK
     imu.out.link(xout_imu.input)
 
-    # Camera Data
-    # First, we want the Color camera as the output in 480p
+    # Node for Camera data - 480p colour output.
     cam_rgb = pipeline.createColorCamera()
     cam_rgb.setPreviewSize(640, 480)
     cam_rgb.setInterleaved(False)
-
     # XLinkOut is a "way out" from the device. Any data you want to transfer to host need to be send via XLink
     xout_rgb = pipeline.createXLinkOut()
     xout_rgb.setStreamName("rgb")
-
     cam_rgb.preview.link(xout_rgb.input)
-    # End Pipeline Construction.
 
-    # Pipeline is now finished, and we need to find an available device to run our pipeline
+
+def td2ms(td) -> int:
+    # Convert timedelta to milliseconds
+    return int(td / timedelta(milliseconds=1))
+
+if __name__ == "__main__":
+    pipeline = create_pipeline()
 
 
     # We are using context manager here that will dispose the device after we stop using it
     with depthai.Device(pipeline) as device:
-
-        def timeDeltaToMilliS(delta) -> float:
-            return delta.total_seconds()*1000
         
         baseTs = None
 
@@ -88,8 +150,8 @@ if __name__ == "__main__":
                     gyroTs = gyroValues.getTimestampDevice()
                     if baseTs is None:
                         baseTs = acceleroTs if acceleroTs < gyroTs else gyroTs
-                    acceleroTs = timeDeltaToMilliS(acceleroTs - baseTs)
-                    gyroTs = timeDeltaToMilliS(gyroTs - baseTs)
+                    acceleroTs = td2ms(acceleroTs - baseTs)
+                    gyroTs = td2ms(gyroTs - baseTs)
 
                     imuF = "{:.06f}"
                     tsF  = "{:.03f}"
