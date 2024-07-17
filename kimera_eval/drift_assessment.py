@@ -62,32 +62,67 @@ vio_df = pd.read_csv(vio_filepath)
 # -----------------------------------------------------------------
 # Comparing x, y and z state estimates to ground truth over time.
 # -----------------------------------------------------------------
+# Generating time passed using timestamp data
+# For ground truth
+gt_time_passed = []
+total_time = 0
+for i in range(len(gt_df)):
+    if i == 0:
+        gt_time_passed.append(0)
+    else:
+        time_diff_ms = (gt_df['#timestamp'].iloc[i] - gt_df['#timestamp'].iloc[i-1])/1000000
+        total_time += time_diff_ms
+        gt_time_passed.append(total_time)    
+
+gt_time_ms_df = pd.DataFrame(gt_time_passed, columns=['time_ms'])
+
+# For VIO state estimate
+# Finding the offset between ground truth and vio estimates
+gt_vio_start_diff = (vio_df['#timestamp'].iloc[0] - gt_df['#timestamp'].iloc[0])/1000000
+
+vio_time_passed = []
+total_time = gt_vio_start_diff
+for i in range(len(vio_df)):
+    if i == 0:
+        vio_time_passed.append(0)
+    else:
+        time_diff_ms = (vio_df['#timestamp'].iloc[i] - vio_df['#timestamp'].iloc[i-1])/1000000
+        total_time += time_diff_ms
+        vio_time_passed.append(total_time)
+vio_time_ms_df = pd.DataFrame(vio_time_passed, columns=['time_ms'])
+
 plt.figure()
 plt.subplot(3, 1, 1)
-plt.plot(gt_df["#timestamp"], gt_df["x"])
-plt.plot(vio_df["#timestamp"], vio_df["x"])
+plt.plot(gt_time_ms_df["time_ms"], gt_df["x"])
+plt.plot(vio_time_ms_df["time_ms"], vio_df["x"])
 plt.legend(["gt", "vio"])
+plt.xlabel("time/ms")
+plt.ylabel("x position/m")
 plt.title("x over time")
 plt.grid(True, which='both', linestyle='--')
 plt.minorticks_on()
 
 plt.subplot(3, 1, 2)
-plt.plot(gt_df["#timestamp"], gt_df["y"])
-plt.plot(vio_df["#timestamp"], vio_df["y"])
+plt.plot(gt_time_ms_df["time_ms"], gt_df["y"])
+plt.plot(vio_time_ms_df["time_ms"], vio_df["y"])
 plt.title("y over time")
+plt.xlabel("time/ms")
+plt.ylabel("y position/m")
 plt.legend(["gt", "vio"])
 plt.grid(True, which='both', linestyle='--')
 plt.minorticks_on()
 
 plt.subplot(3, 1, 3)
-plt.plot(gt_df["#timestamp"], gt_df["z"])
-plt.plot(vio_df["#timestamp"], vio_df["z"])
+plt.plot(gt_time_ms_df["time_ms"], gt_df["z"])
+plt.plot(vio_time_ms_df["time_ms"], vio_df["z"])
 plt.title("z over time")
 plt.legend(["gt", "vio"])
-plt.xlabel("UTC Timestamp")
+plt.xlabel("time/ms")
+plt.ylabel("z position/m")
 plt.grid(True, which='both', linestyle='--')
 plt.minorticks_on()
 
+plt.tight_layout()
 plt.savefig(os.path.join(sys.argv[1], "gtvio_xyz.png"))
 # ------------------------------------------------
 # Comparing error over distance travelled
@@ -157,7 +192,9 @@ for ind in vio_df.index:
     try:
         dist_index = dist_travelled_df[dist_travelled_df['gt_index'] == curr_gt_index].index[0]
         distance = dist_travelled_df.loc[dist_index, 'distance']
-    except:
+    except Exception as e:
+        print(f"exception raised, so breaking out of loop: {e}")
+        print(dist_travelled_df[dist_travelled_df['gt_index'] == curr_gt_index])
         break   #exit loop, since we are probably out of range
 
     if abs(distance) < 0.001:
@@ -168,7 +205,8 @@ for ind in vio_df.index:
     error_calcs.append(data)
 
     # Getting the corresponding gt_ts/index for the next iteration of the loop
-    if (ind+1) >= num_vio_ind: # No next value
+    if (ind+1) > num_vio_ind: # No next value
+        print(f"Exiting loop because next vio index i: {ind+1}")
         break
 
     curr_gt_index=match_gt_vio_ts(gt_df, vio_df, start_gt_index=curr_gt_index, vio_index=ind+1)
@@ -195,7 +233,7 @@ plt.minorticks_on()
 plt.savefig(os.path.join(sys.argv[1], "errvsdist.png"))
 
 # -----------------------------------------------------------------
-# Comparing x, y and z individual error change over time.
+# Comparing x, y and z individual error change over distance.
 # -----------------------------------------------------------------
 plt.figure()
 plt.subplot(3, 1, 1)
@@ -220,6 +258,38 @@ plt.title("z error over distance")
 plt.grid(True, which='both', linestyle='--')
 plt.minorticks_on()
 
-plt.savefig(os.path.join(sys.argv[1], "xyz_errs.png"))
+plt.tight_layout()
+plt.savefig(os.path.join(sys.argv[1], "xyz_errs_distance.png"))
+
+# -----------------------------------------------------------------
+# Comparing x, y and z individual error change over time.
+# -----------------------------------------------------------------
+plt.figure()
+plt.subplot(3, 1, 1)
+plt.plot(vio_time_ms_df['time_ms'][:len(error_df)], error_df["x_err"])
+plt.ylabel("x error (m)")
+plt.xlabel("time/ms")
+plt.title("x error with time")
+plt.grid(True, which='both', linestyle='--')
+plt.minorticks_on()
+
+plt.subplot(3, 1, 2)
+plt.plot(vio_time_ms_df['time_ms'][:len(error_df)], error_df["y_err"])
+plt.ylabel("y error (m)")
+plt.xlabel("time/ms")
+plt.title("y error with time")
+plt.grid(True, which='both', linestyle='--')
+plt.minorticks_on()
+
+plt.subplot(3, 1, 3)
+plt.plot(vio_time_ms_df['time_ms'][:len(error_df)], error_df["z_err"])
+plt.xlabel("time/ms")
+plt.ylabel("z error (m)")
+plt.title("z error with time")
+plt.grid(True, which='both', linestyle='--')
+plt.minorticks_on()
+
+plt.tight_layout()
+plt.savefig(os.path.join(sys.argv[1], "xyz_errs_time.png"))
 if DEBUG:
     plt.show()
