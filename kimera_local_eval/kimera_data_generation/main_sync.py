@@ -2,9 +2,11 @@
 
 import numpy as np
 import pandas as pd
-import cv2
 import depthai as depthai
+import os
+import cv2
 import datetime
+import shutil
 
 from datetime import timedelta
 
@@ -79,9 +81,34 @@ def extract_imu_data(imu_packet, baseTs):
     return [gyroValues.x, gyroValues.y, gyroValues.z, acceleroValues.x, acceleroValues.y, acceleroValues.z]
 
 
+def add_directories(main_dir):
+    dirs_to_create = [main_dir, main_dir + "/cam0", main_dir + "/cam1", main_dir + "/imu0", main_dir + "/cam0/data", main_dir + "/cam1/data"]
+    for dir_to_create in dirs_to_create:
+        if not os.path.exists(dir_to_create):
+            os.makedirs(dir_to_create)
+
+
+def setup_output_directory():
+    main_dir = "./Output"
+    if os.path.exists(main_dir):
+        user_input = input("Output directory contains files. If (Y) this folder will be wiped. If (N) this program will exit and you can backup the folder. Enter (Y/N): ")
+        if user_input.upper() == "Y":
+            shutil.rmtree(main_dir)
+            add_directories(main_dir)
+            return True
+        else:
+            return False
+    else:
+        add_directories(main_dir)
+        return True
+
+
 if __name__ == "__main__":
+    dir_creation_result = setup_output_directory()
+    if dir_creation_result == False:
+        print("Exiting program ...")
+        exit()
     device = depthai.Device()
-    node_message_names = ['imu', 'left_cam', 'right_cam']
     curr_timestamp = datetime.datetime.now()
     cam_data = []
     imu_data = []
@@ -90,6 +117,7 @@ if __name__ == "__main__":
         device.startPipeline(create_pipeline(15, 15))
         groupQueue = device.getOutputQueue("xout", 10, True)
         baseTs = None
+        print("Starting capture. Press (q) to halt capture and exit the program.")
         while True:
             groupMessage = groupQueue.get()
             imu_message = groupMessage["imu"]
@@ -100,7 +128,7 @@ if __name__ == "__main__":
             # print(min_timestamp)
 
             imu_packets = imu_message.packets
-            print("Number of IMU packets:", len(imu_packets))
+            # print("Number of IMU packets:", len(imu_packets))
             imu_packet = imu_packets[0]
             imu_data_point = extract_imu_data(imu_packet, baseTs)
             imu_data_point.insert(0, min_timestamp)
@@ -108,18 +136,22 @@ if __name__ == "__main__":
 
             cv2.imshow("left", left_cam_message.getCvFrame())
             cv2.imshow("right", right_cam_message.getCvFrame())
-
-            cv2.imwrite(f'./Output/cam0/{counter}.png', left_cam_message.getCvFrame())
-            cv2.imwrite(f'./Output/cam1/{counter}.png', right_cam_message.getCvFrame())
+            cv2.imwrite(f'./Output/cam0/data/{counter}.png', left_cam_message.getCvFrame())
+            cv2.imwrite(f'./Output/cam1/data/{counter}.png', right_cam_message.getCvFrame())
 
             cam_data.append([min_timestamp, f"{counter}.png"])
 
             counter += 1
+            if counter % 10 == 0:
+                print("\r", end="")
+                print(f"Approximate number of frames captured: {counter}.", end="")
 
             if cv2.waitKey(1) == ord("q"):
+                print(f"\nTotal number of frames captured: {counter}.")
                 cam_df = pd.DataFrame(cam_data, columns = ["#timestamp [ns]", "filename"])
-                cam_df.to_csv('./Output/cam0/data.csv')
-                cam_df.to_csv('./Output/cam1/data.csv')
+                cam_df.to_csv('./Output/cam0/data.csv', index=False)
+                cam_df.to_csv('./Output/cam1/data.csv', index=False)
                 imu_df = pd.DataFrame(imu_data, columns = ["timestamp[ns]", "w_RS_S_x [rad s^-1]", "w_RS_S_y [rad s^-1]", "w_RS_S_z [rad s^-1]", "a_RS_S_x [m s^-2]", "a_RS_S_y [m s^-2]", "a_RS_S_z [m s^-2]"])
-                imu_df.to_csv('./Output/imu0/data.csv')
+                imu_df.to_csv('./Output/imu0/data.csv', index=False)
                 break
+        exit()
