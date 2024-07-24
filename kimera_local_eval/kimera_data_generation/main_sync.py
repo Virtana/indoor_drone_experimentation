@@ -115,7 +115,7 @@ if __name__ == "__main__":
     imu_data = []
     counter = 0
     with device:
-        device.startPipeline(create_pipeline(4, 4))
+        device.startPipeline(create_pipeline(1, 1))
         groupQueue = device.getOutputQueue("xout", 10, True)
         baseTs = None
         print("Starting capture. Press (q) to halt capture and exit the program.")
