@@ -28,10 +28,10 @@ def create_pipeline(hz, fps):
 
     # Properties
     monoLeft.setCamera("left")
-    monoLeft.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_720_P)
+    monoLeft.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_480_P)
     monoLeft.setFps(fps)
     monoRight.setCamera("right")
-    monoRight.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_720_P)
+    monoRight.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_480_P)
     monoLeft.setFps(fps)
 
     # Define node for IMU data.
@@ -59,7 +59,7 @@ def get_avg_timestamp(groupMessage, curr_timestamp):
 
 
 def timeDeltaToMilliS(delta) -> float:
-        return delta.total_seconds()*1000
+        return round(delta * 1000)
 
 
 def extract_imu_data(imu_packet, baseTs):
@@ -81,30 +81,31 @@ def extract_imu_data(imu_packet, baseTs):
     return [gyroValues.x, gyroValues.y, gyroValues.z, acceleroValues.x, acceleroValues.y, acceleroValues.z]
 
 
-def add_directories(main_dir):
-    dirs_to_create = [main_dir, main_dir + "/cam0", main_dir + "/cam1", main_dir + "/imu0", main_dir + "/cam0/data", main_dir + "/cam1/data"]
+def add_directories(output_dir_path):
+    sub_directories = ["/cam0", "/cam1", "/imu0", "/cam0/data", "/cam1/data"]
+    dirs_to_create = [output_dir_path + dir for dir in sub_directories]
     for dir_to_create in dirs_to_create:
         if not os.path.exists(dir_to_create):
             os.makedirs(dir_to_create)
 
 
-def setup_output_directory():
-    main_dir = "./Output"
-    if os.path.exists(main_dir):
+def setup_output_directory(output_dir_path):
+    if os.path.exists(output_dir_path):
         user_input = input("Output directory contains files. If (Y) this folder will be wiped. If (N) this program will exit and you can backup the folder. Enter (Y/N): ")
         if user_input.upper() == "Y":
-            shutil.rmtree(main_dir)
-            add_directories(main_dir)
+            shutil.rmtree(output_dir_path)
+            add_directories(output_dir_path)
             return True
         else:
             return False
     else:
-        add_directories(main_dir)
+        add_directories(output_dir_path)
         return True
 
 
 if __name__ == "__main__":
-    dir_creation_result = setup_output_directory()
+    output_dir_path = "./Output/mav0"
+    dir_creation_result = setup_output_directory(output_dir_path)
     if dir_creation_result == False:
         print("Exiting program ...")
         exit()
@@ -114,7 +115,7 @@ if __name__ == "__main__":
     imu_data = []
     counter = 0
     with device:
-        device.startPipeline(create_pipeline(15, 15))
+        device.startPipeline(create_pipeline(4, 4))
         groupQueue = device.getOutputQueue("xout", 10, True)
         baseTs = None
         print("Starting capture. Press (q) to halt capture and exit the program.")
@@ -136,10 +137,10 @@ if __name__ == "__main__":
 
             cv2.imshow("left", left_cam_message.getCvFrame())
             cv2.imshow("right", right_cam_message.getCvFrame())
-            cv2.imwrite(f'./Output/cam0/data/{counter}.png', left_cam_message.getCvFrame())
-            cv2.imwrite(f'./Output/cam1/data/{counter}.png', right_cam_message.getCvFrame())
+            cv2.imwrite(f'{output_dir_path}/cam0/data/{counter}.png', left_cam_message.getCvFrame())
+            cv2.imwrite(f'{output_dir_path}/cam1/data/{counter}.png', right_cam_message.getCvFrame())
 
-            cam_data.append([min_timestamp, f"{counter}.png"])
+            cam_data.append([timeDeltaToMilliS(min_timestamp), f"{counter}.png"])
 
             counter += 1
             if counter % 10 == 0:
@@ -149,9 +150,9 @@ if __name__ == "__main__":
             if cv2.waitKey(1) == ord("q"):
                 print(f"\nTotal number of frames captured: {counter}.")
                 cam_df = pd.DataFrame(cam_data, columns = ["#timestamp [ns]", "filename"])
-                cam_df.to_csv('./Output/cam0/data.csv', index=False)
-                cam_df.to_csv('./Output/cam1/data.csv', index=False)
+                cam_df.to_csv(f'{output_dir_path}/cam0/data.csv', index=False)
+                cam_df.to_csv(f'{output_dir_path}/cam1/data.csv', index=False)
                 imu_df = pd.DataFrame(imu_data, columns = ["timestamp[ns]", "w_RS_S_x [rad s^-1]", "w_RS_S_y [rad s^-1]", "w_RS_S_z [rad s^-1]", "a_RS_S_x [m s^-2]", "a_RS_S_y [m s^-2]", "a_RS_S_z [m s^-2]"])
-                imu_df.to_csv('./Output/imu0/data.csv', index=False)
+                imu_df.to_csv(f'{output_dir_path}/imu0/data.csv', index=False)
                 break
         exit()
