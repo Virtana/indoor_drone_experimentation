@@ -12,6 +12,7 @@ def get_args():
     args = vars(arg_parser.parse_args())
     return args
 
+
 def extract_bounding_boxes(result):
 	(ptA, ptB, ptC, ptD) = result.corners
 	ptB = (int(ptB[0]), int(ptB[1]))
