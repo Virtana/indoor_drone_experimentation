@@ -10,6 +10,8 @@ import shutil
 
 from datetime import timedelta
 
+MAX_FRAMES = 100
+
 
 def create_pipeline(hz, fps):
     pipeline = depthai.Pipeline()
@@ -109,11 +111,11 @@ if __name__ == "__main__":
     if dir_creation_result == False:
         print("Exiting program ...")
         exit()
-    device = depthai.Device()
     curr_timestamp = datetime.datetime.now()
     cam_data = []
     imu_data = []
     counter = 0
+    device = depthai.Device()
     with device:
         device.startPipeline(create_pipeline(1, 1))
         groupQueue = device.getOutputQueue("xout", 10, True)
@@ -147,7 +149,7 @@ if __name__ == "__main__":
                 print("\r", end="")
                 print(f"Approximate number of frames captured: {counter}.", end="")
 
-            if cv2.waitKey(1) == ord("q"):
+            if cv2.waitKey(1) == ord("q") or counter == MAX_FRAMES-1:
                 print(f"\nTotal number of frames captured: {counter}.")
                 cam_df = pd.DataFrame(cam_data, columns = ["#timestamp [ns]", "filename"])
                 cam_df.to_csv(f'{output_dir_path}/cam0/data.csv', index=False)
