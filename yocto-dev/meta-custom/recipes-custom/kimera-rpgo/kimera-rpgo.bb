@@ -18,3 +18,5 @@ S = "${WORKDIR}/git"
 inherit cmake
 
 FILES:${PN}-staticdev += "${libdir}/libKimeraRPGO.so"
+
+ALLOW_EMPTY:${PN} = "1"

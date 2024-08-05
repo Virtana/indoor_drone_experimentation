@@ -3,16 +3,12 @@ HOMEPAGE = "https://github.com/MIT-SPARK/Kimera-VIO"
 LICENSE = "MIT"
 LIC_FILES_CHKSUM = "file://LICENSE.BSD;md5=feadbde370d2743a1692fabaddb16b6b"
 
-SRC_URI = "git://github.com/Virtana/Kimera-VIO.git;protocol=https;branch=sarika/cross-compiling/docker"
-SRCREV = "999620fbe9a942f94bec903a23388d7d3c928fd0"
-
-# SRC_URI = "git://github.com/MIT-SPARK/Kimera-VIO.git;protocol=https"
-# SRCREV = "2c7dff1941088e9fe9028f623afb2897451ff2ef"
-# SRC_URI[sha256sum] = "25fa569e76927af1cbae940d9eb38944693f11a7266b4ac41d336e5fba5c730c"
+SRC_URI = "git://github.com/Virtana/Kimera-VIO.git;protocol=https;branch=david/kimera-recipe-fix"
+SRCREV = "785a52ae6a1f1156a15b84378283e9f7e19e3811"
 
 S = "${WORKDIR}/git"
 
-inherit cmake
+inherit cmake pkgconfig
 
 DEPENDS = "boost gflags glog gtsam opengv opencv dbow2 kimera-rpgo gcc-runtime"
 
@@ -23,3 +19,5 @@ EXTRA_OECMAKE += "\
 "
 
 FILES:${PN}-staticdev += "${libdir}/libkimera_vio.so"
+
+ALLOW_EMPTY:${PN} = "1"

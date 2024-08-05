@@ -19,7 +19,8 @@ inherit cmake
 # CMake build options
 EXTRA_OECMAKE = "\
     -DCMAKE_BUILD_TYPE=Release \
-    -DCMAKE_INSTALL_PREFIX=${prefix} \
     -DEIGEN_INCLUDE_DIRS=${STAGING_DIR_TARGET}${includedir}/eigen3 \
     -DEIGEN_INCLUDE_DIR=${STAGING_DIR_TARGET}${includedir}/eigen3 \
 "
+
+ALLOW_EMPTY:${PN} = "1"
