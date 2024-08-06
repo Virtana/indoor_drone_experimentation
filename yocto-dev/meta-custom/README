@@ -1,41 +1,9 @@
-This README file contains information on the contents of the meta-custom layer.
+Kirkstone Compatible Layer with recipes for Ice Crem Project:
+- [DBOW2](https://github.com/dorian3d/DBoW2)
+- [OpenGV](https://github.com/laurentkneip/opengv)
+- [Kimera-RPGO](https://github.com/MIT-SPARK/Kimera-RPGO)
+- [GTSAM](https://github.com/borglab/gtsam)
+- [Glog](https://github.com/google/glog_)
+- [Kimera-VIO](https://github.com/Virtana/Kimera-VIO/tree/david/kimera-recipe-fix)
 
-Please see the corresponding sections below for details.
-
-Dependencies
-============
-
-  URI: <first dependency>
-  branch: <branch name>
-
-  URI: <second dependency>
-  branch: <branch name>
-
-  .
-  .
-  .
-
-Patches
-=======
-
-Please submit any patches against the meta-custom layer to the xxxx mailing list (xxxx@zzzz.org)
-and cc: the maintainer:
-
-Maintainer: XXX YYYYYY <xxx.yyyyyy@zzzzz.com>
-
-Table of Contents
-=================
-
-  I. Adding the meta-custom layer to your build
- II. Misc
-
-
-I. Adding the meta-custom layer to your build
-=================================================
-
-Run 'bitbake-layers add-layer meta-custom'
-
-II. Misc
-========
-
---- replace with specific information about the meta-custom layer ---
+See each individual recipe (.bb) for the specific source URIs and commit hashes.
