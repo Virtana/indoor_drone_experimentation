@@ -1,4 +1,4 @@
-Kirkstone Compatible Layer with recipes for Ice Crem Project:
+Kirkstone Compatible Layer with recipes for Ice Cream Project:
 - [DBOW2](https://github.com/dorian3d/DBoW2)
 - [OpenGV](https://github.com/laurentkneip/opengv)
 - [Kimera-RPGO](https://github.com/MIT-SPARK/Kimera-RPGO)
