@@ -10,7 +10,7 @@ import shutil
 
 from datetime import timedelta
 
-MAX_FRAMES = 100
+MAX_FRAMES = 500
 
 
 def create_pipeline(hz, fps):
