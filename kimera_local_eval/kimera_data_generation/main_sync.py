@@ -10,7 +10,7 @@ import shutil
 
 from datetime import timedelta
 
-MAX_FRAMES = 500
+MAX_FRAMES = 10000
 
 
 def create_pipeline(hz, fps):
@@ -30,10 +30,10 @@ def create_pipeline(hz, fps):
 
     # Properties
     monoLeft.setCamera("left")
-    monoLeft.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_480_P)
+    monoLeft.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_400_P)
     monoLeft.setFps(fps)
     monoRight.setCamera("right")
-    monoRight.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_480_P)
+    monoRight.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_400_P)
     monoLeft.setFps(fps)
 
     # Define node for IMU data.

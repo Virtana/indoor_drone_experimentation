@@ -12,13 +12,12 @@ import depthai as depthai
 from datetime import datetime
 
 
-# def get_args():
-# 	# Construct the Argument Parser and Parse the arguments.
-#     arg_parser = argparse.ArgumentParser()
-#     arg_parser.add_argument("-i", "--image", required=True,
-# 	help="Path to input image containing AprilTag")
-#     args = vars(arg_parser.parse_args())
-#     return args
+def get_args():
+	# Construct the Argument Parser and Parse the arguments.
+    arg_parser = argparse.ArgumentParser()
+    arg_parser.add_argument("--capture", type=str, required=True, help="Whether or not to perform data capture (Y/N)")
+    args = vars(arg_parser.parse_args())
+    return args
 
 
 def extract_bounding_boxes(result):
@@ -138,12 +137,16 @@ def process_images(images_for_processing_paths, april_tag_size, output_dir_path)
 		results = detector.detect(image_gray)
 		if len(results) > 0:
 
-			world_pts = np.array([
-					[-april_tag_size, april_tag_size, 0],
-					[april_tag_size, april_tag_size, 0],
-					[april_tag_size, -april_tag_size, 0],
-					[-april_tag_size, -april_tag_size, 0]],
-				dtype=np.float16)
+			world_pts = np.array([[0, 0, 0], 
+                      [april_tag_size, 0, 0], 
+                      [april_tag_size, april_tag_size, 0], 
+                      [0, april_tag_size, 0]])
+
+			# world_pts = np.array([[-april_tag_size/2, april_tag_size/2, 0],
+            #           [april_tag_size/2, april_tag_size/2, 0],
+            #           [april_tag_size/2, -april_tag_size/2, 0],
+            #           [-april_tag_size/2, -april_tag_size/2, 0]])
+
 			world_pts = world_pts.astype('float32')
 
 			# We will only have at most one AprilTag per frame.
@@ -153,10 +156,17 @@ def process_images(images_for_processing_paths, april_tag_size, output_dir_path)
 			image_points = np.array(extract_bounding_boxes(result))
 			image_points = image_points.astype('float32')
 
+			print("Image points are: ", image_points)
+
 			(success, rotation_vector, translation_vector) = \
 				cv2.solvePnP(objectPoints=world_pts, imagePoints=image_points, cameraMatrix=camera_matrix, distCoeffs=distortion_coeff)
 
 			print((type(success), type(rotation_vector), translation_vector))
+
+			imagePoints_world, _ = cv2.projectPoints(world_pts, rotation_vector, translation_vector, camera_matrix, distortion_coeff)
+
+			for point in imagePoints_world:
+				cv2.circle(image, tuple(point[0].astype(int)), 5, (0, 255, 0), -1)
 
 			# Draw the center (x, y)-coordinates of the AprilTag
 			(cX, cY) = (int(result.center[0]), int(result.center[1]))
@@ -178,32 +188,40 @@ def process_images(images_for_processing_paths, april_tag_size, output_dir_path)
 
 
 if __name__ == "__main__":
-	# args = get_args()
+	args = get_args()
+
+	print(args)
 
 	# Load camera calibration data.
 	calibration_filepath = "./Default_Calibration_Data/calib_18443010A177F50800.json"
 	distortion_coeff, camera_matrix = load_camera_calibration_data(calibration_filepath)
 
-	# # Get color camera data.
-	pipeline = create_pipeline(fps=1)
+	if args['capture'] == 'Y':
+		# Get camera data.
+		pipeline = create_pipeline(fps=1)
 
-	# Get date and time for folder creation.
-	now = datetime.now()
-	dt_string = now.strftime("%Y_%m_%d_%H_%M_%S")
+		# Get date and time for folder creation.
+		now = datetime.now()
+		dt_string = now.strftime("%Y_%m_%d_%H_%M_%S")
 
-	# Create target directory.
-	output_dir_path = f"./Ground_Truth_Images/Results_{dt_string}_"
-	os.makedirs(output_dir_path)
+		# Create target directory.
+		output_dir_path = f"./Ground_Truth_Images/Results_{dt_string}_"
+		os.makedirs(output_dir_path)
 
-	# Connect to OAK-D and capture images.
-	images_df = capture_save_images(pipeline=pipeline, num_images_to_campture=10, output_dir_path=output_dir_path)
+		# Connect to OAK-D and capture images.
+		images_df = capture_save_images(pipeline=pipeline, num_images_to_campture=10, output_dir_path=output_dir_path)
+
+	else:
+		dt_string = '2024_08_13_09_05_47'
+		output_dir_path = f"./Ground_Truth_Images/Results_{dt_string}_"
+		images_df = pd.read_csv(f"{output_dir_path}/data.csv")
 
 	# Run April-Tag detection and pose estimation.
 	images_for_processing = glob.glob(f"{output_dir_path}/*.png")
-	results_df = process_images(images_for_processing, 150, output_dir_path)
+	results_df = process_images(images_for_processing[0:1], 0.117/2, output_dir_path)
 
 	# Add results(df_results) to cam_df!
 	final_df = pd.concat([images_df, results_df], axis=1)
-	final_df.to_csv(f'{output_dir_path}/data.csv')
+	final_df.to_csv(f'{output_dir_path}/data_pose.csv')
 
 	
