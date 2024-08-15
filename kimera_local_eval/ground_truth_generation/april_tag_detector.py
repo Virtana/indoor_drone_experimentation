@@ -38,10 +38,11 @@ def load_camera_calibration_data(filename):
 	# The stereo cameras are idendified by indicies 0 and 1; and the color camera is identified by index 2.
 
 	if data is not None:
-		color_camera_calibration = data['cameraData'][2][1]
+		color_camera_calibration = data['cameraData'][0][1]
 		distortion_coeff = np.array(color_camera_calibration['distortionCoeff'])
 		camera_matrix = np.array(color_camera_calibration['intrinsicMatrix'])
-		return distortion_coeff, camera_matrix
+		camera_calibration_resolution = (color_camera_calibration['height'], color_camera_calibration['width'])
+		return distortion_coeff, camera_matrix, camera_calibration_resolution
 	else:
 		exit(1)
 
@@ -61,22 +62,22 @@ def create_pipeline(fps):
 	# cam_rgb.preview.link(xout_rgb.input)
 	pipeline = depthai.Pipeline()
 
-	# Define source and output
-	camRgb = pipeline.create(depthai.node.ColorCamera)
-	xoutVideo = pipeline.create(depthai.node.XLinkOut)
-
-	xoutVideo.setStreamName("rgb")
+	mono_left_cam = pipeline.create(depthai.node.MonoCamera)
 
 	# Properties
-	camRgb.setBoardSocket(depthai.CameraBoardSocket.CAM_A)
-	camRgb.setResolution(depthai.ColorCameraProperties.SensorResolution.THE_1080_P)
-	camRgb.setVideoSize(1920, 1080)
+	mono_left_cam.setCamera("left")
+	mono_left_cam.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_400_P)
+	mono_left_cam.setFps(fps)
+
+	# Define source and output
+	xoutVideo = pipeline.create(depthai.node.XLinkOut)
+	xoutVideo.setStreamName("left_cam")
 
 	xoutVideo.input.setBlocking(False)
 	xoutVideo.input.setQueueSize(1)
 
 	# Linking
-	camRgb.video.link(xoutVideo.input)
+	mono_left_cam.out.link(xoutVideo.input)
 	return pipeline
 
 
@@ -90,30 +91,44 @@ def capture_save_images(pipeline, num_images_to_campture, output_dir_path):
 	with device:
 		device.startPipeline(pipeline)
         # To consume the device results, we get one output queue from the device, with stream names we assigned earlier
-		q_rgb = device.getOutputQueue("rgb", maxSize=1, blocking=False)
+		mono_left_cam = device.getOutputQueue("left_cam", maxSize=1, blocking=False)
 		counter = 0
 		cam_data = []
 		while counter < num_images_to_campture + delay:
             # We try to fetch the data from nn/rgb queues. tryGet will return either the data packet or None if there isn't any
-			in_rgb = q_rgb.tryGet()
-			if in_rgb is not None:
-				device_timestamp = in_rgb.getTimestampDevice()
+			input_left_mono_cam = mono_left_cam.tryGet()
+			if input_left_mono_cam is not None:
+				device_timestamp = input_left_mono_cam.getTimestampDevice()
                 # If the packet from RGB camera is present, we're retrieving the frame in OpenCV format using getCvFrame
-				frame = in_rgb.getCvFrame()
+				frame = input_left_mono_cam.getCvFrame()
 				if frame is not None:
 					counter += 1
+					print("\r", end="")
+					print(f"Approximate number of frames captured: {counter}.", end="")
 					cv2.imshow("preview", frame)
 					if counter > delay:
 						cv2.imwrite(f'{output_dir_path}/{counter}.png', frame)
 						cam_data.append([timeDeltaToMilliS(device_timestamp), f"{counter}.png"])
             # At any time, you can press "q" and exit the main loop, therefore exiting the program itself
-			# if cv2.waitKey(1) == ord('q'):
-			# 	break
+			if cv2.waitKey(1) == ord('q'):
+				break
 		cam_df = pd.DataFrame(cam_data, columns = ["#timestamp [ns]", "filename"])
 		return cam_df
 	
 
-def process_images(images_for_processing_paths, april_tag_size, output_dir_path):
+def determine_scaling_factor(camera_calibration_resolution, image_size):
+	height_scale = camera_calibration_resolution[0]/image_size[0]
+	width_scale = camera_calibration_resolution[1]/image_size[1]
+	print(camera_calibration_resolution)
+	print(image_size)
+	if (height_scale == width_scale):
+		return (True, height_scale)
+	else:
+		return (False, height_scale)
+
+	
+
+def process_images(images_for_processing_paths, april_tag_size, output_dir_path, camera_calibration_resolution):
 	data_to_add_df = {
 		'number_of_april_tags': [],
 		'image_points': [],
@@ -130,22 +145,23 @@ def process_images(images_for_processing_paths, april_tag_size, output_dir_path)
 		image = cv2.imread(image_for_processing_path)
 		image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-		criteria = (cv2.TERM_CRITERIA_EPS + cv2.TERM_CRITERIA_MAX_ITER, 30, 0.001)
+		image_size = image_gray.shape
+		scales_match, scaling_factor_= determine_scaling_factor(camera_calibration_resolution, image_size)
+
+		if scales_match == False:
+			print("There might be an error with the scaling factor!")
 
 		options = apriltag.DetectorOptions(families="tag25h9")
 		detector = apriltag.Detector(options)
 		results = detector.detect(image_gray)
 		if len(results) > 0:
 
+			# Axis centered on the top left corner,
+			# Positive X to the right, positive Y down.
 			world_pts = np.array([[0, 0, 0], 
                       [april_tag_size, 0, 0], 
                       [april_tag_size, april_tag_size, 0], 
                       [0, april_tag_size, 0]])
-
-			# world_pts = np.array([[-april_tag_size/2, april_tag_size/2, 0],
-            #           [april_tag_size/2, april_tag_size/2, 0],
-            #           [april_tag_size/2, -april_tag_size/2, 0],
-            #           [-april_tag_size/2, -april_tag_size/2, 0]])
 
 			world_pts = world_pts.astype('float32')
 
@@ -156,14 +172,16 @@ def process_images(images_for_processing_paths, april_tag_size, output_dir_path)
 			image_points = np.array(extract_bounding_boxes(result))
 			image_points = image_points.astype('float32')
 
-			print("Image points are: ", image_points)
+			# print(image.shape)
+			# print(image_gray.shape)
+			# print("Image points are: ", image_points)
 
 			(success, rotation_vector, translation_vector) = \
-				cv2.solvePnP(objectPoints=world_pts, imagePoints=image_points, cameraMatrix=camera_matrix, distCoeffs=distortion_coeff)
+				cv2.solvePnP(objectPoints=world_pts, imagePoints=image_points, cameraMatrix=camera_matrix/scaling_factor_, distCoeffs=distortion_coeff)
 
 			print((type(success), type(rotation_vector), translation_vector))
 
-			imagePoints_world, _ = cv2.projectPoints(world_pts, rotation_vector, translation_vector, camera_matrix, distortion_coeff)
+			imagePoints_world, _ = cv2.projectPoints(world_pts, rotation_vector, translation_vector, camera_matrix/scaling_factor_, distortion_coeff)
 
 			for point in imagePoints_world:
 				cv2.circle(image, tuple(point[0].astype(int)), 5, (0, 255, 0), -1)
@@ -190,38 +208,50 @@ def process_images(images_for_processing_paths, april_tag_size, output_dir_path)
 if __name__ == "__main__":
 	args = get_args()
 
-	print(args)
-
 	# Load camera calibration data.
 	calibration_filepath = "./Default_Calibration_Data/calib_18443010A177F50800.json"
-	distortion_coeff, camera_matrix = load_camera_calibration_data(calibration_filepath)
+	distortion_coeff, camera_matrix, camera_calibration_resolution = load_camera_calibration_data(calibration_filepath)
+
+	# Instantiate the main directory.
+	main_directory = './Ground_Truth_Images'
 
 	if args['capture'] == 'Y':
 		# Get camera data.
-		pipeline = create_pipeline(fps=1)
+		pipeline = create_pipeline(fps=4)
 
 		# Get date and time for folder creation.
 		now = datetime.now()
 		dt_string = now.strftime("%Y_%m_%d_%H_%M_%S")
 
 		# Create target directory.
-		output_dir_path = f"./Ground_Truth_Images/Results_{dt_string}_"
+		output_dir_path = f"{main_directory}/Results_{dt_string}_"
 		os.makedirs(output_dir_path)
 
 		# Connect to OAK-D and capture images.
 		images_df = capture_save_images(pipeline=pipeline, num_images_to_campture=10, output_dir_path=output_dir_path)
 
 	else:
-		dt_string = '2024_08_13_09_05_47'
-		output_dir_path = f"./Ground_Truth_Images/Results_{dt_string}_"
-		images_df = pd.read_csv(f"{output_dir_path}/data.csv")
+		
+		all_sub_directories = list(os.walk(main_directory))[1:]
+		print("Subdirectory listing: ")
+		for index, directory in enumerate(all_sub_directories):
+			print(f'{index+1}. {directory[0]}')
+		
+		selection = int(input(f"Enter the directory you would like to run AprilTag detection on ([{1}-{index+1}]): "))
+		if selection >=1 or selection <= len(all_sub_directories):
+			dt_string = all_sub_directories[selection-1][0].split('/')[2]
+			output_dir_path = f"{main_directory}/{dt_string}"
+			images_df = pd.read_csv(f"{output_dir_path}/data_pose.csv")
+			images_df.drop(columns = ['Success', 'r_vecs', 't_vecs'], inplace=True)
+		else:
+			print("Invalid selection. Program will now exit.")
+			exit(1)
 
-	# Run April-Tag detection and pose estimation.
+	# Run April-Tag detection and pose estimation. 
+	# NOTE: Images_for_processing is not in any particular order.
 	images_for_processing = glob.glob(f"{output_dir_path}/*.png")
-	results_df = process_images(images_for_processing[0:1], 0.117/2, output_dir_path)
+	results_df = process_images(images_for_processing, 0.117, output_dir_path, camera_calibration_resolution)
 
 	# Add results(df_results) to cam_df!
 	final_df = pd.concat([images_df, results_df], axis=1)
-	final_df.to_csv(f'{output_dir_path}/data_pose.csv')
-
-	
+	final_df.to_csv(f'{output_dir_path}/data_pose.csv', index=False)
