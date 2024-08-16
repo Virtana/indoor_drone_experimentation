@@ -35,7 +35,11 @@ RUN apt -y install llvm
 RUN apt -y install bc
 RUN apt -y install cpio
 RUN apt -y install rsync
+RUN apt -y install libncursesw5
+RUN apt -y install libpython2.7
+
+RUN touch /root/.bash_aliases
+RUN echo "alias gdb='/opt/gcc-arm-9.2-2019.12-x86_64-aarch64-none-linux-gnu/bin/aarch64-none-linux-gnu-gdb /compulab_kernel/build/vmlinux -tui'" >> /root/.bash_aliases
 
 
 WORKDIR /compulab_kernel/linux-compulab
-
