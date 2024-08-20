@@ -1,3 +1,7 @@
+# Recipe for adding Google glog to a custom Yocto layer
+# Modified from the original recipe in meta-openembedded to include custom setting
+# Original - https://github.com/openembedded/meta-openembedded/blob/kirkstone/meta-oe/recipes-support/glog/glog_0.5.0.bb
+
 DESCRIPTION = "The glog library implements application-level logging. This \
 library provides logging APIs based on C++-style streams and various helper \
 macros."
@@ -15,6 +19,7 @@ SRCREV = "8f9ccfe770add9e4c64e9b25c102658e3c763b73"
 
 S = "${WORKDIR}/git"
 
+# added DEPENDS so that it can be built and linked with gflags
 DEPENDS = " gflags "
 
 EXTRA_OECMAKE += "-DWITH_GFLAGS=ON"
