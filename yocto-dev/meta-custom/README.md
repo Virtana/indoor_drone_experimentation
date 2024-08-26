@@ -1,4 +1,4 @@
-#### Kirkstone-Compatible Layer for Kimera-VIO
+# Kirkstone-Compatible Layer for Kimera-VIO
 This layer includes custom recipes for the libraries and tools required to compile and include Kimera-VIO in Yocto image:
 - [DBOW2](https://github.com/dorian3d/DBoW2)
 - [OpenGV](https://github.com/laurentkneip/opengv)

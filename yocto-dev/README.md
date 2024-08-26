@@ -5,12 +5,11 @@ This folder includes all relevant artifacts for setting up an independent Yocto 
 - Standard configuration files for each development machine
 - Miscellaneous image related scripts 
 
-#### Setting up Development Environment
+## Setting up Development Environment
 
 - Configure environment prerequisites for Yocto. 
-    - You can install essential packages locally if you intend to run Yocto on your host machine. 
+    - You can install essential packages locally if you intend to run Yocto on your host machine. For Ubuntu:
         ``` 
-        For Ubuntu:
         $ sudo apt install gawk wget git diffstat unzip texinfo gcc build-essential chrpath socat cpio python3 python3-pip python3-pexpect xz-utils debianutils iputils-ping python3-git python3-jinja2 python3-subunit zstd liblz4-tool file locales libacl1
         $ sudo locale-gen en_US.UTF-8
         ```
@@ -27,7 +26,14 @@ This folder includes all relevant artifacts for setting up an independent Yocto 
     - Clone this **indoor_drone_experimentation** repo to include dependencies and custom recipe for Kimera-VIO.
     - Clone the [meta-ros](https://github.com/ros/meta-ros/tree/kirkstone) (kirkstone branch) for GTSAM recipe dependencies.
 
-#### Building a UCM-iMX93 image on your Machine
+## Building a UCM-iMX93 image on your Machine
+
+Minimum system requirements:
+- 4 CPU Cores
+- 8GB RAM
+- 90GB Available Storage
+
+
 Every time you restart your computer OR enter the Docker dev container, you need to source the build folder:
 `source compulab-setup-env {BUILD_FOLDER_NAME}`
 
