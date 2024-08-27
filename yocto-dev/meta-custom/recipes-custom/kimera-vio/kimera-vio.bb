@@ -23,6 +23,15 @@ EXTRA_OECMAKE += "\
     -DCMAKE_SYSTEM_PROCESSOR=aarch64 \
 "
 
+# Adding stereoVIOEuroc binary to rootfs
+do_install:append() {
+    install -d ${D}${bindir}
+    install -m 0755 ${B}/stereoVIOEuroc ${D}${bindir}/stereoVIOEuroc
+}
+
+# For QA check of binary runtime dependencies
+RPROVIDES:${PN} += "libkimera_vio.so()(64bit)"
+
 # Ensure the static development package includes the shared library file (QA fix)
 FILES:${PN}-staticdev += "${libdir}/libkimera_vio.so"
 

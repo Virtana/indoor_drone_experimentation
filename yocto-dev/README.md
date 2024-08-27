@@ -5,7 +5,14 @@ This folder includes all relevant artifacts for setting up an independent Yocto 
 - Standard configuration files for each development machine
 - Miscellaneous image related scripts 
 
-## Setting up Development Environment
+## Building a UCM-iMX93 image
+
+Minimum system requirements:
+- 4 CPU Cores
+- 16GB RAM
+- 120GB Available Storage
+
+### Setting up Development Environment
 
 - Configure environment prerequisites for Yocto. 
     - You can install essential packages locally if you intend to run Yocto on your host machine. For Ubuntu:
@@ -26,16 +33,34 @@ This folder includes all relevant artifacts for setting up an independent Yocto 
     - Clone this **indoor_drone_experimentation** repo to include dependencies and custom recipe for Kimera-VIO.
     - Clone the [meta-ros](https://github.com/ros/meta-ros/tree/kirkstone) (kirkstone branch) for GTSAM recipe dependencies.
 
-## Building a UCM-iMX93 image on your Machine
+To build the image:  
+```
+bitbake imx-image-core
+```
 
-Minimum system requirements:
-- 4 CPU Cores
-- 8GB RAM
-- 90GB Available Storage
+*Note:* Every time you restart your computer OR enter the Docker dev container, you need to source the build folder: 
+```
+source compulab-setup-env {BUILD_FOLDER_NAME}
+```
 
 
-Every time you restart your computer OR enter the Docker dev container, you need to source the build folder:
-`source compulab-setup-env {BUILD_FOLDER_NAME}`
 
-To build the image: 
-`bitbake imx-image-core`
+### Deploying the Image
+
+The generated image `imx-image-core-ucm-imx93.wic.zst`  will be located in `{BUILD_FOLDER_NAME}/tmp/deploy/images`. 
+
+To deploy the image on your device, follow Compulab's [SD card](https://mediawiki.compulab.com/w/index.php?title=UCM-iMX93:_Yocto_Linux:_Manual_Installation:_SD_card) and [eMMC installation](https://mediawiki.compulab.com/w/index.php?title=UCM-iMX93:_Yocto_Linux:_Installing_Yocto_images_onto_UCM-iMX93_eMMC) instructions, using your `.wic.zst` file instead.
+
+### Running KimeraVIO
+
+To test KimeraVIO on the board, the following is required:
+
+- **StereoVIOEuroc binary**: Included on the image in `/usr/bin`.
+- **Yamelized Euroc dataset**: See *"2.i. Euroc Dataset"*  in Kimera-VIO's [README](https://github.com/MIT-SPARK/Kimera-VIO?tab=readme-ov-file#i-euroc-dataset).
+- **Euroc Parameters**: This [folder](https://github.com/MIT-SPARK/Kimera-VIO/tree/master/params/Euroc) is taken from the repository.
+- **StereoVIOEuroc.bash**: This [script](https://github.com/MIT-SPARK/Kimera-VIO/blob/master/scripts/stereoVIOEuroc.bash) is configured to run within Kimera's repo structure. Please create and modify the PATHS for your specific test environment OR copy the repo to your device.
+
+To run Kimera-VIO:
+```
+bash {PATH_TO_SCRIPT}/stereoVIOEuroc.bash
+```
