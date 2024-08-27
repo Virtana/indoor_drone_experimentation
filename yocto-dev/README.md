@@ -43,8 +43,6 @@ bitbake imx-image-core
 source compulab-setup-env {BUILD_FOLDER_NAME}
 ```
 
-
-
 ### Deploying the Image
 
 The generated image `imx-image-core-ucm-imx93.wic.zst`  will be located in `{BUILD_FOLDER_NAME}/tmp/deploy/images`. 
