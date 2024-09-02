@@ -8,9 +8,10 @@ import cv2
 import datetime
 import shutil
 
+from datetime import datetime
 from datetime import timedelta
 
-MAX_FRAMES = 10000
+MAX_FRAMES = 50000
 
 
 def create_pipeline(hz, fps):
@@ -56,12 +57,13 @@ def get_avg_timestamp(groupMessage, curr_timestamp):
     node_message_names = groupMessage.getMessageNames()
     timedeltas = []
     for message_name in node_message_names:
-        timedeltas.append(curr_timestamp + groupMessage[message_name].getTimestampDevice())
-    return min(timedeltas).timestamp()
+        timedeltas.append(groupMessage[message_name].getTimestampDevice())
+        # print("Timestamp is: ", timedeltas[-1])
+    batch_timestamp = min(timedeltas) + curr_timestamp
+    return batch_timestamp.timestamp()
 
-
-def timeDeltaToMilliS(delta) -> float:
-        return round(delta * 1000)
+def time_delta_to_nano_secs(delta) -> float:
+    return round(delta * 1000000000)
 
 
 def extract_imu_data(imu_packet, baseTs):
@@ -106,43 +108,55 @@ def setup_output_directory(output_dir_path):
 
 
 if __name__ == "__main__":
-    output_dir_path = "./Output/mav0"
+    # Get date and time for folder creation.
+    timestamp_now = datetime.now()
+    dt_string = timestamp_now.strftime("%Y_%m_%d_%H_%M_%S")
+    
+    # Setup and create output directory path.
+    output_dir_path = f"./Output/{dt_string}/mav0"
     dir_creation_result = setup_output_directory(output_dir_path)
     if dir_creation_result == False:
         print("Exiting program ...")
         exit()
-    curr_timestamp = datetime.datetime.now()
+    
+    # Instantiate necessary variables for storage.
+    curr_timestamp = timestamp_now
     cam_data = []
     imu_data = []
     counter = 0
     device = depthai.Device()
     with device:
-        device.startPipeline(create_pipeline(1, 1))
+        # Setup pipeline
+        device.startPipeline(create_pipeline(hz=100, fps=4))
         groupQueue = device.getOutputQueue("xout", 10, True)
         baseTs = None
         print("Starting capture. Press (q) to halt capture and exit the program.")
         while True:
+            # Get messages from input devices.
             groupMessage = groupQueue.get()
             imu_message = groupMessage["imu"]
             left_cam_message = groupMessage["left_cam"]
             right_cam_message = groupMessage["right_cam"]
 
-            min_timestamp = get_avg_timestamp(groupMessage, curr_timestamp)
-            # print(min_timestamp)
+            # Get minimum timestamp across all input devices. This will be used as the timestamp for this particular group of messages.
+            # Also convert this timestamp to nano seconds.
+            min_timestamp_ns = time_delta_to_nano_secs(get_avg_timestamp(groupMessage, curr_timestamp))
 
+            # Extract IMU data.
             imu_packets = imu_message.packets
             # print("Number of IMU packets:", len(imu_packets))
             imu_packet = imu_packets[0]
             imu_data_point = extract_imu_data(imu_packet, baseTs)
-            imu_data_point.insert(0, min_timestamp)
+            imu_data_point.insert(0, min_timestamp_ns)
             imu_data.append(imu_data_point)
 
+            # Save images.
             cv2.imshow("left", left_cam_message.getCvFrame())
             cv2.imshow("right", right_cam_message.getCvFrame())
-            cv2.imwrite(f'{output_dir_path}/cam0/data/{counter}.png', left_cam_message.getCvFrame())
-            cv2.imwrite(f'{output_dir_path}/cam1/data/{counter}.png', right_cam_message.getCvFrame())
+            cv2.imwrite(f'{output_dir_path}/cam0/data/{min_timestamp_ns}.png', left_cam_message.getCvFrame())
+            cv2.imwrite(f'{output_dir_path}/cam1/data/{min_timestamp_ns}.png', right_cam_message.getCvFrame())
 
-            cam_data.append([timeDeltaToMilliS(min_timestamp), f"{counter}.png"])
+            cam_data.append([min_timestamp_ns, f"{min_timestamp_ns}.png"])
 
             counter += 1
             if counter % 10 == 0:
@@ -154,7 +168,7 @@ if __name__ == "__main__":
                 cam_df = pd.DataFrame(cam_data, columns = ["#timestamp [ns]", "filename"])
                 cam_df.to_csv(f'{output_dir_path}/cam0/data.csv', index=False)
                 cam_df.to_csv(f'{output_dir_path}/cam1/data.csv', index=False)
-                imu_df = pd.DataFrame(imu_data, columns = ["timestamp[ns]", "w_RS_S_x [rad s^-1]", "w_RS_S_y [rad s^-1]", "w_RS_S_z [rad s^-1]", "a_RS_S_x [m s^-2]", "a_RS_S_y [m s^-2]", "a_RS_S_z [m s^-2]"])
+                imu_df = pd.DataFrame(imu_data, columns = ["#timestamp [ns]", "w_RS_S_x [rad s^-1]", "w_RS_S_y [rad s^-1]", "w_RS_S_z [rad s^-1]", "a_RS_S_x [m s^-2]", "a_RS_S_y [m s^-2]", "a_RS_S_z [m s^-2]"])
                 imu_df.to_csv(f'{output_dir_path}/imu0/data.csv', index=False)
                 break
-        exit()
+        exit(0)

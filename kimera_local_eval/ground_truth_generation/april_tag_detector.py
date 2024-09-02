@@ -231,12 +231,13 @@ if __name__ == "__main__":
 		images_df = capture_save_images(pipeline=pipeline, num_images_to_campture=10, output_dir_path=output_dir_path)
 
 	else:
-		
+		# Get all directories with data we can process.
 		all_sub_directories = list(os.walk(main_directory))[1:]
 		print("Subdirectory listing: ")
 		for index, directory in enumerate(all_sub_directories):
 			print(f'{index+1}. {directory[0]}')
 		
+		# Capture selection from user.
 		selection = int(input(f"Enter the directory you would like to run AprilTag detection on ([{1}-{index+1}]): "))
 		if selection >=1 or selection <= len(all_sub_directories):
 			dt_string = all_sub_directories[selection-1][0].split('/')[2]
