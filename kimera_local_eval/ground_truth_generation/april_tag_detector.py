@@ -5,6 +5,7 @@ import glob
 import cv2
 import json
 import os
+import copy
 import numpy as np
 import pandas as pd
 import depthai as depthai
@@ -14,10 +15,11 @@ from datetime import datetime
 
 def get_args():
 	# Construct the Argument Parser and Parse the arguments.
-    arg_parser = argparse.ArgumentParser()
-    arg_parser.add_argument("--capture", type=str, required=True, help="Whether or not to perform data capture (Y/N)")
-    args = vars(arg_parser.parse_args())
-    return args
+	arg_parser = argparse.ArgumentParser()
+	arg_parser.add_argument("--capture", type=str, required=True, help="Whether or not to perform data capture (Y/N)")
+	# arg_parser.add_argument("--kimera_data", type=str, required=True, help="Whether or not csv file is from Kimera (Y/N)")
+	args = vars(arg_parser.parse_args())
+	return args
 
 
 def extract_bounding_boxes(result):
@@ -40,6 +42,7 @@ def load_camera_calibration_data(filename):
 	if data is not None:
 		color_camera_calibration = data['cameraData'][0][1]
 		distortion_coeff = np.array(color_camera_calibration['distortionCoeff'])
+		print(distortion_coeff)
 		camera_matrix = np.array(color_camera_calibration['intrinsicMatrix'])
 		camera_calibration_resolution = (color_camera_calibration['height'], color_camera_calibration['width'])
 		return distortion_coeff, camera_matrix, camera_calibration_resolution
@@ -85,6 +88,15 @@ def timeDeltaToMilliS(delta) -> float:
     return delta.total_seconds()*1000
 
 
+def determine_scaling_factor(camera_calibration_resolution, image_size):
+	height_scale = image_size[0]/camera_calibration_resolution[0]
+	width_scale = image_size[1]/camera_calibration_resolution[1]
+	print(camera_calibration_resolution)
+	print(image_size)
+	return (height_scale, width_scale)
+
+
+
 def capture_save_images(pipeline, num_images_to_campture, output_dir_path):
 	delay = 50
 	device = depthai.Device()
@@ -116,18 +128,6 @@ def capture_save_images(pipeline, num_images_to_campture, output_dir_path):
 		return cam_df
 	
 
-def determine_scaling_factor(camera_calibration_resolution, image_size):
-	height_scale = camera_calibration_resolution[0]/image_size[0]
-	width_scale = camera_calibration_resolution[1]/image_size[1]
-	print(camera_calibration_resolution)
-	print(image_size)
-	if (height_scale == width_scale):
-		return (True, height_scale)
-	else:
-		return (False, height_scale)
-
-	
-
 def process_images(images_for_processing_paths, april_tag_size, output_dir_path, camera_calibration_resolution):
 	data_to_add_df = {
 		'number_of_april_tags': [],
@@ -146,10 +146,8 @@ def process_images(images_for_processing_paths, april_tag_size, output_dir_path,
 		image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
 		image_size = image_gray.shape
-		scales_match, scaling_factor_= determine_scaling_factor(camera_calibration_resolution, image_size)
-
-		if scales_match == False:
-			print("There might be an error with the scaling factor!")
+		height_scaling_factor_, width_scaling_factor_ = determine_scaling_factor(camera_calibration_resolution, image_size)
+		print(f"Scaling factor applied: H: {height_scaling_factor_}, W: {width_scaling_factor_}")
 
 		options = apriltag.DetectorOptions(families="tag25h9")
 		detector = apriltag.Detector(options)
@@ -176,12 +174,18 @@ def process_images(images_for_processing_paths, april_tag_size, output_dir_path,
 			# print(image_gray.shape)
 			# print("Image points are: ", image_points)
 
+			camera_matrix_adjusted = copy.deepcopy(camera_matrix)
+			camera_matrix_adjusted[0][0] *= height_scaling_factor_
+			camera_matrix_adjusted[0][2] *= height_scaling_factor_
+			camera_matrix_adjusted[1][1] *= width_scaling_factor_
+			camera_matrix_adjusted[1][2] *= width_scaling_factor_
+
 			(success, rotation_vector, translation_vector) = \
-				cv2.solvePnP(objectPoints=world_pts, imagePoints=image_points, cameraMatrix=camera_matrix/scaling_factor_, distCoeffs=distortion_coeff)
+				cv2.solvePnP(objectPoints=world_pts, imagePoints=image_points, cameraMatrix=camera_matrix_adjusted, distCoeffs=distortion_coeff)
 
 			print((type(success), type(rotation_vector), translation_vector))
 
-			imagePoints_world, _ = cv2.projectPoints(world_pts, rotation_vector, translation_vector, camera_matrix/scaling_factor_, distortion_coeff)
+			imagePoints_world, _ = cv2.projectPoints(world_pts, rotation_vector, translation_vector, camera_matrix_adjusted, distortion_coeff)
 
 			for point in imagePoints_world:
 				cv2.circle(image, tuple(point[0].astype(int)), 5, (0, 255, 0), -1)
@@ -198,10 +202,10 @@ def process_images(images_for_processing_paths, april_tag_size, output_dir_path,
 			cv2.imwrite(f'{output_dir_path}/{image_filename}_identified.png', image)
 
 			if success:
-				results_for_df.append((success, np.array2string(rotation_vector), np.array2string(translation_vector)))
+				results_for_df.append((success, np.array_repr(rotation_vector), np.array_repr(translation_vector)))
 			else:
 				results_for_df.append((0, -1, -1))
-	return pd.DataFrame({'Success': [i[0] for i in results_for_df], 'r_vecs':[i[1] for i in results_for_df], 't_vecs':[i[2] for i in results_for_df]})
+	return pd.DataFrame({'Success': [i[0] for i in results_for_df], 'r_vecs_GT':[i[1] for i in results_for_df], 't_vecs_GT':[i[2] for i in results_for_df]})
 
 
 
@@ -242,8 +246,11 @@ if __name__ == "__main__":
 		if selection >=1 or selection <= len(all_sub_directories):
 			dt_string = all_sub_directories[selection-1][0].split('/')[2]
 			output_dir_path = f"{main_directory}/{dt_string}"
-			images_df = pd.read_csv(f"{output_dir_path}/data_pose.csv")
-			images_df.drop(columns = ['Success', 'r_vecs', 't_vecs'], inplace=True)
+			images_df = pd.read_csv(f"{output_dir_path}/data.csv")
+			# if args['kimera_data'] == 'Y':
+			# 	cols_to_drop = ['Success', 'r_vecs', 't_vecs']
+			# 	if set(cols_to_drop).issubset(images_df.columns):
+			# 		images_df.drop(columns = ['Success', 'r_vecs', 't_vecs'], inplace=True)
 		else:
 			print("Invalid selection. Program will now exit.")
 			exit(1)
