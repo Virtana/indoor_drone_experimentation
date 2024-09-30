@@ -1,0 +1,13 @@
+pose_evaluation/
+ground_truth_generation/Custom_Camera_Calibration/Calibration_Data/
+ground_truth_generation/Custom_Camera_Calibration/Calibration_Images/
+ground_truth_generation/Ground_Truth_Images/
+ground_truth_generation/Default_Calibration_Data/*.json
+kimera_data_generation/Output/
+env/
+.ipynb_checkpoints/
+.cache/
+mav0/
+*.csv
+*.png
+

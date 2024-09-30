@@ -12,7 +12,7 @@ from datetime import datetime
 from datetime import timedelta
 
 # Maximum numbers of camera frames that can be captured.
-MAX_FRAMES = 1000
+MAX_FRAMES = 10000
 
 
 def create_pipeline(hz, fps):
@@ -51,7 +51,9 @@ def time_delta_to_nano_secs(delta) -> float:
 def extract_imu_data(imu_packet):
     acceleroValues = imu_packet.acceleroMeter
     gyroValues = imu_packet.gyroscope
-    return [gyroValues.x, gyroValues.y, gyroValues.z, acceleroValues.x, acceleroValues.y, acceleroValues.z]
+    gyroTs = gyroValues.getTimestampDevice()
+    acceleroTs = acceleroValues.getTimestampDevice()
+    return [gyroValues.x, gyroValues.y, gyroValues.z], gyroTs, [acceleroValues.x, acceleroValues.y, acceleroValues.z], acceleroTs
 
 
 def add_directories(output_dir_path):
@@ -74,6 +76,19 @@ def setup_output_directory(output_dir_path):
     else:
         add_directories(output_dir_path)
         return True
+    
+
+def generate_interpolated_timestamps_v1(df, x_col, step):
+    return np.arange(df[x_col].iloc[0], df[x_col].iloc[-1] + step, step)
+
+
+def generate_interpolated_timestamps_v2(df, x_col, step):
+    return df[x_col].values
+
+
+def interpolate_data(df, x_col, y_col, start_stop_range):
+    interpolated_data = np.interp(start_stop_range, df[x_col], df[y_col])
+    return interpolated_data[0: df.shape[0]]
 
 
 if __name__ == "__main__":
@@ -91,36 +106,37 @@ if __name__ == "__main__":
     # Instantiate necessary variables for storage.
     curr_timestamp = timestamp_now
     cam_data = []
-    imu_data = []
+    gyroscope_data = []
+    accelerometer_data = []
     counter = 0
     device = depthai.Device()
     with device:
-        # Setup pipeline
-        device.startPipeline(create_pipeline(hz=100, fps=4))
+        # Setup pipeline. 
+        # Note that by setting IMU hz to 100, we will be capturing and 125hz and 100hz for the accelerometer and gyroscope respectively. 
+        device.startPipeline(create_pipeline(hz=200, fps=4))
         stream_names = ['imu', 'left']
         print("Starting capture. Press (q) to halt capture and exit the program.")
         while True:
             for stream_name in stream_names:
-                message = device.getOutputQueue(stream_name).tryGet()
+                message = device.getOutputQueue(stream_name, maxSize=500, blocking=True).tryGet()
                 if message is not None:
                     if stream_name == 'imu':
-                        imu_packets = message.packets
-                        # print("Number of IMU packets:", len(imu_packets))
-                        imu_packet = imu_packets[0]
-                        imu_data_point = extract_imu_data(imu_packet)
-                        imu_timestamp = time_delta_to_nano_secs((message.getTimestampDevice() + curr_timestamp).timestamp())
-                        imu_data_point.insert(0, imu_timestamp)
-                        imu_data.append(imu_data_point)
+                        for imu_packet in message.packets:
+                            gyroscope_datapoint, gyroscope_time, accelerometer_datapoint, accelerometer_time = extract_imu_data(imu_packet)
+                            gyroscope_timestamp = time_delta_to_nano_secs((gyroscope_time + curr_timestamp).timestamp())
+                            accelerometer_timestamp = time_delta_to_nano_secs((accelerometer_time + curr_timestamp).timestamp())
+                            gyroscope_datapoint.insert(0, gyroscope_timestamp)
+                            accelerometer_datapoint.insert(0, accelerometer_timestamp)
+                            gyroscope_data.append(gyroscope_datapoint)
+                            accelerometer_data.append(accelerometer_datapoint)
                     elif stream_name == 'left':
                         counter += 1
                         cv_frame = message.getCvFrame()
                         left_cam_timestamp = time_delta_to_nano_secs((message.getTimestampDevice(depthai.CameraExposureOffset.MIDDLE) + curr_timestamp).timestamp())
-                        # left_cam_timestamp = time_delta_to_nano_secs((message.getTimestampDevice() + curr_timestamp).timestamp())
                         cv2.imshow("left", cv_frame)
                         cv2.imwrite(f'{output_dir_path}/cam0/data/{left_cam_timestamp}.png', cv_frame)
                         cv2.imwrite(f'{output_dir_path}/cam1/data/{left_cam_timestamp}.png', cv_frame)
                         cam_data.append([left_cam_timestamp, f"{left_cam_timestamp}.png"])
-
                     if counter % 10 == 0:
                         print("\r", end="")
                         print(f"Approximate number of frames captured: {counter}.", end="")
@@ -130,7 +146,22 @@ if __name__ == "__main__":
                     cam_df = pd.DataFrame(cam_data, columns = ["#timestamp [ns]", "filename"])
                     cam_df.to_csv(f'{output_dir_path}/cam0/data.csv', index=False)
                     cam_df.to_csv(f'{output_dir_path}/cam1/data.csv', index=False)
-                    imu_df = pd.DataFrame(imu_data, columns = ["#timestamp [ns]", "w_RS_S_x [rad s^-1]", "w_RS_S_y [rad s^-1]", "w_RS_S_z [rad s^-1]", "a_RS_S_x [m s^-2]", "a_RS_S_y [m s^-2]", "a_RS_S_z [m s^-2]"])
+
+                    gyroscope_df = pd.DataFrame(gyroscope_data, columns = ["#timestamp [ns]", "w_RS_S_x [rad s^-1]", "w_RS_S_y [rad s^-1]", "w_RS_S_z [rad s^-1]"])
+                    gyroscope_df.to_csv(f'{output_dir_path}/imu0/gyro_data.csv', index=False)
+
+                    accelerometer_df = pd.DataFrame(accelerometer_data, columns = ["#timestamp [ns]", "a_RS_S_x [m s^-2]", "a_RS_S_y [m s^-2]", "a_RS_S_z [m s^-2]"])
+                    accelerometer_df.to_csv(f'{output_dir_path}/imu0/acc_data.csv', index=False)
+                    x_col = "#timestamp [ns]"
+                    columns_to_interpolate = ["a_RS_S_x [m s^-2]", "a_RS_S_y [m s^-2]", "a_RS_S_z [m s^-2]"]
+                    interpolated_timestamps = generate_interpolated_timestamps_v2(gyroscope_df, x_col, 10000000)
+                    
+                    for y_col in columns_to_interpolate:
+                        interpolated_data = interpolate_data(accelerometer_df, x_col, y_col, interpolated_timestamps)
+                        accelerometer_df[y_col] = interpolated_data
+                    accelerometer_df[x_col] = interpolated_timestamps[0:interpolated_data.shape[0]]
+
+                    imu_df = accelerometer_df.merge(gyroscope_df, left_on=x_col, right_on=x_col)
                     imu_df.to_csv(f'{output_dir_path}/imu0/data.csv', index=False)
                     exit(0)
         

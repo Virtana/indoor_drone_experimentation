@@ -9,6 +9,7 @@ import copy
 import numpy as np
 import pandas as pd
 import depthai as depthai
+from scipy.spatial import distance
 
 from datetime import datetime
 
@@ -98,7 +99,7 @@ def determine_scaling_factor(camera_calibration_resolution, image_size):
 
 
 def capture_save_images(pipeline, num_images_to_campture, output_dir_path):
-	delay = 50
+	delay = 75
 	device = depthai.Device()
 	with device:
 		device.startPipeline(pipeline)
@@ -128,7 +129,7 @@ def capture_save_images(pipeline, num_images_to_campture, output_dir_path):
 		return cam_df
 	
 
-def process_images(images_for_processing_paths, april_tag_size, output_dir_path, camera_calibration_resolution):
+def detect_apriltag_compute_pose(images_for_processing_paths, april_tag_size, output_dir_path, camera_calibration_resolution):
 	data_to_add_df = {
 		'number_of_april_tags': [],
 		'image_points': [],
@@ -145,7 +146,7 @@ def process_images(images_for_processing_paths, april_tag_size, output_dir_path,
 		image = cv2.imread(image_for_processing_path)
 		image_gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
 
-		image_size = image_gray.shape
+		image_size = image.shape
 		height_scaling_factor_, width_scaling_factor_ = determine_scaling_factor(camera_calibration_resolution, image_size)
 		print(f"Scaling factor applied: H: {height_scaling_factor_}, W: {width_scaling_factor_}")
 
@@ -170,41 +171,46 @@ def process_images(images_for_processing_paths, april_tag_size, output_dir_path,
 			image_points = np.array(extract_bounding_boxes(result))
 			image_points = image_points.astype('float32')
 
-			# print(image.shape)
-			# print(image_gray.shape)
-			# print("Image points are: ", image_points)
-
 			camera_matrix_adjusted = copy.deepcopy(camera_matrix)
 			camera_matrix_adjusted[0][0] *= height_scaling_factor_
 			camera_matrix_adjusted[0][2] *= height_scaling_factor_
 			camera_matrix_adjusted[1][1] *= width_scaling_factor_
 			camera_matrix_adjusted[1][2] *= width_scaling_factor_
 
-			(success, rotation_vector, translation_vector) = \
+			(solve_pnp_success_result, rotation_vector, translation_vector) = \
 				cv2.solvePnP(objectPoints=world_pts, imagePoints=image_points, cameraMatrix=camera_matrix_adjusted, distCoeffs=distortion_coeff)
 
-			print((type(success), type(rotation_vector), translation_vector))
+			if solve_pnp_success_result:
+				
+				imagePoints_world, _ = cv2.projectPoints(world_pts, rotation_vector, translation_vector, camera_matrix_adjusted, distortion_coeff)
+				
+				total_error = 0.0
+				for detected_point, projected_point in zip(image_points, imagePoints_world):
+					print("April Tag Detected Points: ", detected_point)
+					print("Projected April Tag Points: ", projected_point[0])
+					error = distance.euclidean(detected_point, projected_point[0])
+					print("Error: ", error)
+					total_error += error
+					print("-----------")
+				print("Average Pixel Error: ", total_error/4)
 
-			imagePoints_world, _ = cv2.projectPoints(world_pts, rotation_vector, translation_vector, camera_matrix_adjusted, distortion_coeff)
+				for point in imagePoints_world:
+					cv2.circle(image, tuple(point[0].astype(int)), 5, (0, 255, 0), -1)
 
-			for point in imagePoints_world:
-				cv2.circle(image, tuple(point[0].astype(int)), 5, (0, 255, 0), -1)
+				# Draw the center (x, y)-coordinates of the AprilTag
+				(cX, cY) = (int(result.center[0]), int(result.center[1]))
+				cv2.circle(image, (cX, cY), 5, (0, 0, 255), -1)
 
-			# Draw the center (x, y)-coordinates of the AprilTag
-			(cX, cY) = (int(result.center[0]), int(result.center[1]))
-			cv2.circle(image, (cX, cY), 5, (0, 0, 255), -1)
+				# Draw the tag family on the image
+				tagFamily = result.tag_family.decode("utf-8")
+				cv2.putText(image, tagFamily, (int(image_points[0][0]), int(image_points[0][1]) - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
 
-			# Draw the tag family on the image
-			tagFamily = result.tag_family.decode("utf-8")
-			cv2.putText(image, tagFamily, (int(image_points[0][0]), int(image_points[0][1]) - 15), cv2.FONT_HERSHEY_SIMPLEX, 0.5, (0, 255, 0), 2)
+				image_filename = image_for_processing_path.split(".")[1].split("/")[-1]
+				cv2.imwrite(f'{output_dir_path}/{image_filename}_identified.png', image)
 
-			image_filename = image_for_processing_path.split(".")[1].split("/")[-1]
-			cv2.imwrite(f'{output_dir_path}/{image_filename}_identified.png', image)
-
-			if success:
-				results_for_df.append((success, np.array_repr(rotation_vector), np.array_repr(translation_vector)))
+				results_for_df.append((solve_pnp_success_result, np.array_repr(rotation_vector), np.array_repr(translation_vector)))
 			else:
-				results_for_df.append((0, -1, -1))
+				results_for_df.append((solve_pnp_success_result, -1, -1))
 	return pd.DataFrame({'Success': [i[0] for i in results_for_df], 'r_vecs_GT':[i[1] for i in results_for_df], 't_vecs_GT':[i[2] for i in results_for_df]})
 
 
@@ -258,7 +264,10 @@ if __name__ == "__main__":
 	# Run April-Tag detection and pose estimation. 
 	# NOTE: Images_for_processing is not in any particular order.
 	images_for_processing = glob.glob(f"{output_dir_path}/*.png")
-	results_df = process_images(images_for_processing, 0.117, output_dir_path, camera_calibration_resolution)
+	results_df = detect_apriltag_compute_pose(images_for_processing_paths=images_for_processing, 
+										   	  april_tag_size=0.117, 
+											  output_dir_path=output_dir_path, 
+											  camera_calibration_resolution=camera_calibration_resolution)
 
 	# Add results(df_results) to cam_df!
 	final_df = pd.concat([images_df, results_df], axis=1)
