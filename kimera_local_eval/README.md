@@ -4,7 +4,7 @@ creating a custom dataset, performing pose estimation with Kimera-VIO and valida
 There are many packages used across these folders. To avoid conflict with global pip packages, please create a virtual
 environment before installing packages specified in the requirements.txt file.
 
-### Unordered
+### Directory Listing
 
 * Checking Jitter - This directory includes Python scripts and Jupyter Notebooks designed to collect data from accelerometer and gyroscope sensors, as well as to plot the differences between data points to analyze the jitter from these sensors.
 * Delta Analysis - This directory contains Jupyter Notebooks used to investigate the deltas for datasets (namely our custom datasets as well as the Euroc dataset).
