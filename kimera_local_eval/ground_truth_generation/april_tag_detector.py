@@ -18,7 +18,7 @@ def get_args():
 	# Construct the Argument Parser and Parse the arguments.
 	arg_parser = argparse.ArgumentParser()
 	arg_parser.add_argument("--capture", type=str, required=True, help="Whether or not to perform data capture (Y/N)")
-	# arg_parser.add_argument("--kimera_data", type=str, required=True, help="Whether or not csv file is from Kimera (Y/N)")
+	arg_parser.add_argument("--kimera_data", type=str, required=True, help="Whether or not csv file has the  Kimera (Y/N)")
 	args = vars(arg_parser.parse_args())
 	return args
 
@@ -51,26 +51,14 @@ def load_camera_calibration_data(filename):
 		exit(1)
 
 
-def create_pipeline(fps):
-	# pipeline = depthai.Pipeline()
-    # # Node for Camera data - 720p colour output.
-	# cam_rgb = pipeline.create(depthai.node.ColorCamera)
-	# cam_rgb.setBoardSocket(depthai.CameraBoardSocket.CAM_A)
-	# cam_rgb.setResolution(depthai.ColorCameraProperties.SensorResolution.THE_1080_P)
-	# # cam_rgb.setFps(fps)
-	# # XLinkOut is a "way out" from the device. Any data you want to transfer to host need to be send via XLink
-	# xout_rgb = pipeline.createXLinkOut()
-	# xout_rgb.setStreamName("rgb")
-	# xout_rgb.input.setBlocking(False)
-	# xout_rgb.input.setQueueSize(1)
-	# cam_rgb.preview.link(xout_rgb.input)
+def create_pipeline(fps, sensor_resolution):
 	pipeline = depthai.Pipeline()
 
 	mono_left_cam = pipeline.create(depthai.node.MonoCamera)
 
 	# Properties
 	mono_left_cam.setCamera("left")
-	mono_left_cam.setResolution(depthai.MonoCameraProperties.SensorResolution.THE_400_P)
+	mono_left_cam.setResolution(sensor_resolution)
 	mono_left_cam.setFps(fps)
 
 	# Define source and output
@@ -98,8 +86,7 @@ def determine_scaling_factor(camera_calibration_resolution, image_size):
 
 
 
-def capture_save_images(pipeline, num_images_to_campture, output_dir_path):
-	delay = 75
+def capture_save_images(pipeline, num_images_to_capture, output_dir_path, delay):
 	device = depthai.Device()
 	with device:
 		device.startPipeline(pipeline)
@@ -107,7 +94,7 @@ def capture_save_images(pipeline, num_images_to_campture, output_dir_path):
 		mono_left_cam = device.getOutputQueue("left_cam", maxSize=1, blocking=False)
 		counter = 0
 		cam_data = []
-		while counter < num_images_to_campture + delay:
+		while counter < num_images_to_capture + delay:
             # We try to fetch the data from nn/rgb queues. tryGet will return either the data packet or None if there isn't any
 			input_left_mono_cam = mono_left_cam.tryGet()
 			if input_left_mono_cam is not None:
@@ -171,11 +158,19 @@ def detect_apriltag_compute_pose(images_for_processing_paths, april_tag_size, ou
 			image_points = np.array(extract_bounding_boxes(result))
 			image_points = image_points.astype('float32')
 
+			# camera_matrix_adjusted = copy.deepcopy(camera_matrix)
+			# camera_matrix_adjusted[0][0] *= height_scaling_factor_
+			# camera_matrix_adjusted[0][2] = image_size[1] / 2
+			# camera_matrix_adjusted[1][1] *= width_scaling_factor_
+			# camera_matrix_adjusted[1][2] = image_size[0] / 2
+
 			camera_matrix_adjusted = copy.deepcopy(camera_matrix)
-			camera_matrix_adjusted[0][0] *= height_scaling_factor_
-			camera_matrix_adjusted[0][2] *= height_scaling_factor_
-			camera_matrix_adjusted[1][1] *= width_scaling_factor_
-			camera_matrix_adjusted[1][2] *= width_scaling_factor_
+			# camera_matrix_adjusted[0][0] *= height_scaling_factor_
+			# camera_matrix_adjusted[0][2] *= height_scaling_factor_ #cx
+			# camera_matrix_adjusted[1][1] *= height_scaling_factor_
+			camera_matrix_adjusted[1][2] *= height_scaling_factor_ #cy
+
+			print(camera_matrix_adjusted)
 
 			(solve_pnp_success_result, rotation_vector, translation_vector) = \
 				cv2.solvePnP(objectPoints=world_pts, imagePoints=image_points, cameraMatrix=camera_matrix_adjusted, distCoeffs=distortion_coeff)
@@ -208,26 +203,39 @@ def detect_apriltag_compute_pose(images_for_processing_paths, april_tag_size, ou
 				image_filename = image_for_processing_path.split(".")[1].split("/")[-1]
 				cv2.imwrite(f'{output_dir_path}/{image_filename}_identified.png', image)
 
-				results_for_df.append((solve_pnp_success_result, np.array_repr(rotation_vector), np.array_repr(translation_vector)))
+				results_for_df.append((solve_pnp_success_result, np.array_repr(rotation_vector), np.array_repr(translation_vector), total_error/4))
 			else:
-				results_for_df.append((solve_pnp_success_result, -1, -1))
-	return pd.DataFrame({'Success': [i[0] for i in results_for_df], 'r_vecs_GT':[i[1] for i in results_for_df], 't_vecs_GT':[i[2] for i in results_for_df]})
+				results_for_df.append((solve_pnp_success_result, -1, -1, -1))
+	return pd.DataFrame({'success': [i[0] for i in results_for_df], 
+					     'r_vecs_GT':[i[1] for i in results_for_df], 
+						 't_vecs_GT':[i[2] for i in results_for_df],
+						 'avg_pixel_error':[i[3] for i in results_for_df]})
 
 
 
 if __name__ == "__main__":
+	# Load arguements.
 	args = get_args()
 
-	# Load camera calibration data.
-	calibration_filepath = "./Default_Calibration_Data/calib_18443010A177F50800.json"
-	distortion_coeff, camera_matrix, camera_calibration_resolution = load_camera_calibration_data(calibration_filepath)
+	# Load configuration.
+	with open('config.json') as f:
+		config = json.load(f)
+		f.close()
+	
+	calibration_filepath = config["CALIBRATION_FILE_PATH"]
+	main_directory = config["WORKING_DIRECTORY"]
+	fps = int(config["FPS"])
+	delay = int(config["DELAY"])
+	num_images_to_capture = int(config["NUMBER_OF_IMAGES_TO_CAPTURE"])
+	sensor_resolution = eval(config["SENSOR_RESOLUTION"])
+	april_tag_size = float(config["APRIL_TAG_SIZE"])
 
-	# Instantiate the main directory.
-	main_directory = './Ground_Truth_Images'
+	# Load camera calibration data.
+	distortion_coeff, camera_matrix, camera_calibration_resolution = load_camera_calibration_data(calibration_filepath)
 
 	if args['capture'] == 'Y':
 		# Get camera data.
-		pipeline = create_pipeline(fps=4)
+		pipeline = create_pipeline(fps, sensor_resolution)
 
 		# Get date and time for folder creation.
 		now = datetime.now()
@@ -238,7 +246,7 @@ if __name__ == "__main__":
 		os.makedirs(output_dir_path)
 
 		# Connect to OAK-D and capture images.
-		images_df = capture_save_images(pipeline=pipeline, num_images_to_campture=10, output_dir_path=output_dir_path)
+		images_df = capture_save_images(pipeline=pipeline, num_images_to_capture=num_images_to_capture, output_dir_path=output_dir_path, delay=delay)
 
 	else:
 		# Get all directories with data we can process.
@@ -251,12 +259,19 @@ if __name__ == "__main__":
 		selection = int(input(f"Enter the directory you would like to run AprilTag detection on ([{1}-{index+1}]): "))
 		if selection >=1 or selection <= len(all_sub_directories):
 			dt_string = all_sub_directories[selection-1][0].split('/')[2]
+			print("Operating on:", dt_string)
 			output_dir_path = f"{main_directory}/{dt_string}"
 			images_df = pd.read_csv(f"{output_dir_path}/data.csv")
-			# if args['kimera_data'] == 'Y':
-			# 	cols_to_drop = ['Success', 'r_vecs', 't_vecs']
-			# 	if set(cols_to_drop).issubset(images_df.columns):
-			# 		images_df.drop(columns = ['Success', 'r_vecs', 't_vecs'], inplace=True)
+			# If this directory already contains files which identify the AprilTags, we can remove them.
+			files_for_deletion = glob.glob(f"{output_dir_path}/*_identified.png")
+			for file_to_delete in files_for_deletion:
+				os.remove(file_to_delete)
+			# For handling csv file with Kimera data headers.
+			if args['kimera_data'] == 'Y':
+				all_cols_to_drop = ['success', 'r_vecs_GT', 't_vecs_GT', 'avg_pixel_error']
+				cols_to_drop = set(all_cols_to_drop).intersection(set(images_df.columns))
+				images_df.drop(columns = cols_to_drop, inplace=True)
+				images_df.to_csv(f"{output_dir_path}/data.csv", index=False)
 		else:
 			print("Invalid selection. Program will now exit.")
 			exit(1)
@@ -265,7 +280,7 @@ if __name__ == "__main__":
 	# NOTE: Images_for_processing is not in any particular order.
 	images_for_processing = glob.glob(f"{output_dir_path}/*.png")
 	results_df = detect_apriltag_compute_pose(images_for_processing_paths=images_for_processing, 
-										   	  april_tag_size=0.117, 
+										   	  april_tag_size=april_tag_size, 
 											  output_dir_path=output_dir_path, 
 											  camera_calibration_resolution=camera_calibration_resolution)
 
