@@ -3,6 +3,10 @@ import depthai as dai
 import numpy as np
 import pandas as pd
 
+IMU_RATE = 200
+THRESHOLD_WARN = (1000.0 / IMU_RATE) * 1.2
+print(f"THRESHOLD_WARN={THRESHOLD_WARN}")
+
 # Create pipeline
 pipeline = dai.Pipeline()
 
@@ -14,7 +18,7 @@ pipeline.setXLinkChunkSize(0)
 xlinkOut.setStreamName("imu")
 
 # Enable GYROSCOPE_RAW at 200 Hz rate
-imu.enableIMUSensor(dai.IMUSensor.ACCELEROMETER_RAW, 100)
+imu.enableIMUSensor(dai.IMUSensor.ACCELEROMETER_RAW, IMU_RATE)
 
 # Set batch report threshold and max batch reports
 imu.setBatchReportThreshold(1)
@@ -29,8 +33,15 @@ time_deltas = []
 # Pipeline is defined, now we can connect to the device
 with dai.Device(pipeline) as device:
 
+    device.setLogLevel(dai.LogLevel.DEBUG)
+
+    # Print MxID, USB speed, and available cameras on the device
+    print('MxId:',device.getDeviceInfo().getMxId())
+    print('USB speed:',device.getUsbSpeed())
+    print('Connected cameras:',device.getConnectedCameras())
+
     # Output queue for imu bulk packets
-    imuQueue = device.getOutputQueue(name="imu", maxSize=50, blocking=False)  # Reduce maxSize for more frequent updates
+    imuQueue = device.getOutputQueue(name="imu", maxSize=20000, blocking=True)  # Reduce maxSize for more frequent updates
     lastTimestamp = None
 
     while len(time_deltas) < 10000:
@@ -39,9 +50,12 @@ with dai.Device(pipeline) as device:
     
         if lastTimestamp is not None:
             delta = (currentTimestamp - lastTimestamp)  # Calculate time delta
+            delta *= 1000
             time_deltas.append(delta)
-            if (delta > 12.0):
-                print(f"[warn] unusual delta timestamp > {tsF.format(timeDelta)} ms")
+            tsF  = "{:.09f}"
+            print(f"delta timestamp: {tsF.format(delta)} ms", end="\r")
+            if (delta > THRESHOLD_WARN):
+                print(f"[warn] unusual delta timestamp > {tsF.format(delta)} ms")
 
         lastTimestamp = currentTimestamp
 
@@ -52,14 +66,3 @@ std_delta = np.std(time_deltas_ms)
 
 df = pd.DataFrame(data = {'time_deltas_ms': time_deltas_ms, 'mean_delta':mean_delta, 'std_delta':std_delta})
 df.to_csv('jaka_script_imu.csv')
-
-# Create scatter plot
-# plt.figure(figsize=(10, 6))
-# plt.scatter(range(len(time_deltas_ms)), time_deltas_ms, c='blue', label='Time Deltas', s=10)
-# plt.axhline(mean_delta, color='red', linestyle='--', label=f'Mean = {mean_delta:.2f} ms')
-# plt.text(0, 0, f"Mean: {mean_delta:.2f} ms\nStd: {std_delta:.2f} ms", fontsize=12, bbox=dict(facecolor='white', alpha=0.5))
-# plt.xlabel('Measurement Index')
-# plt.ylabel('Time Delta (ms)')
-# plt.title('Scatter Plot of Time Deltas Between Consecutive IMU Packets')
-# plt.legend()
-# plt.show()

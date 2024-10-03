@@ -127,7 +127,7 @@ def detect_apriltag_compute_pose(images_for_processing_paths, april_tag_size, ou
 
 	results_for_df = []
 
-	for image_for_processing_path in images_for_processing_paths:
+	for image_for_processing_path in images_for_processing_paths[0:1]:
 
 		# Load the input image and convert it to grayscale.
 		image = cv2.imread(image_for_processing_path)
@@ -165,11 +165,10 @@ def detect_apriltag_compute_pose(images_for_processing_paths, april_tag_size, ou
 			# camera_matrix_adjusted[1][2] = image_size[0] / 2
 
 			camera_matrix_adjusted = copy.deepcopy(camera_matrix)
-			# camera_matrix_adjusted[0][0] *= height_scaling_factor_
-			# camera_matrix_adjusted[0][2] *= height_scaling_factor_ #cx
-			# camera_matrix_adjusted[1][1] *= height_scaling_factor_
-			camera_matrix_adjusted[1][2] *= height_scaling_factor_ #cy
-
+			camera_matrix_adjusted[0][0] *= width_scaling_factor_
+			camera_matrix_adjusted[0][2] *= width_scaling_factor_
+			camera_matrix_adjusted[1][1] *= height_scaling_factor_
+			camera_matrix_adjusted[1][2] *= height_scaling_factor_
 			print(camera_matrix_adjusted)
 
 			(solve_pnp_success_result, rotation_vector, translation_vector) = \
