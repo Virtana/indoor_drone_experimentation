@@ -186,13 +186,16 @@ if __name__ == "__main__":
 
                     accelerometer_df = pd.DataFrame(accelerometer_data, columns = ["#timestamp [ns]", "a_RS_S_x [m s^-2]", "a_RS_S_y [m s^-2]", "a_RS_S_z [m s^-2]"])
                     accelerometer_df.to_csv(f'{output_dir_path}/imu0/acc_data.csv', index=False)
-                    timestamp_deltas = np.array([0])
-                    timestamp_deltas = np.append(timestamp_deltas, np.diff(accelerometer_df['#timestamp [ns]'].values))
-                    accelerometer_df['raw_timestamp'] = timestamp_deltas
-                    accelerometer_df = accelerometer_df[accelerometer_df['raw_timestamp'] < np.mean(timestamp_deltas) + (1.5 * np.std(timestamp_deltas))]
-                    accelerometer_df.to_csv(f'{output_dir_path}/imu0/acc_data_before_interpolation.csv', index=False)
-                    accelerometer_df.drop(columns=['raw_timestamp'], inplace=True)
+                    # It would not make sense to filter out large deltas since this would only create larger deltas!
+                    # timestamp_deltas = np.array([0])
+                    # timestamp_deltas = np.append(timestamp_deltas, np.diff(accelerometer_df['#timestamp [ns]'].values))
+                    # accelerometer_df['raw_timestamp'] = timestamp_deltas
+                    # accelerometer_df = accelerometer_df[accelerometer_df['raw_timestamp'] < np.mean(timestamp_deltas) + (1.5 * np.std(timestamp_deltas))]
+                    # accelerometer_df.to_csv(f'{output_dir_path}/imu0/acc_data_before_interpolation.csv', index=False)
+                    # accelerometer_df.drop(columns=['raw_timestamp'], inplace=True)
 
+                    # Option 1: Instead we are trying interpolation on all the accelerometer data. 
+                    # Option 2: If option 1 does not work we can backfill the accelerometer data before interpolation.
 
                     x_col = "#timestamp [ns]"
                     columns_to_interpolate = ["a_RS_S_x [m s^-2]", "a_RS_S_y [m s^-2]", "a_RS_S_z [m s^-2]"]
