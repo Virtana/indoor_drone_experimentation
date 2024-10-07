@@ -1,0 +1,5 @@
+{
+    "SENSOR_RESOLUTION": "depthai.MonoCameraProperties.SensorResolution.THE_400_P",
+    "IMU_FPS": 200,
+    "CAMERA_FPS": 4
+}
