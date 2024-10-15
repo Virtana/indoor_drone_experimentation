@@ -10,4 +10,5 @@ env/
 mav0/
 *.csv
 *.png
+data/
 

@@ -43,7 +43,8 @@ def extract_adjust_camera_calibration(camera_calibration, image_size):
 
 
 if __name__ == "__main__":
-    calibration_file = 'calib_18443010A177F50800.json'
+    main_dir = '../../data/ground_truth_generation/Default_Calibration_Data'
+    calibration_file = f'{main_dir}/calib_18443010A177F50800.json'
     # Width is the first value and height is the second.
     image_size = (1280, 800)
     with open(calibration_file, 'r') as file:
@@ -56,12 +57,12 @@ if __name__ == "__main__":
         right_camera_calibration = extract_adjust_camera_calibration(data['cameraData'][0][1], image_size)
         
         # print("Left Cam Calibration:", left_camera_calibration)
-        with open('LeftCameraParams_V2.yaml', 'w') as output_file:
+        with open(f'{main_dir}/LeftCameraParams_V2.yaml', 'w') as output_file:
             yaml.dump(left_camera_calibration, output_file, default_flow_style=None)
 
         print("\n\n\n")
         # print("Right Cam Calibration:", right_camera_calibration)
-        with open('RightCameraParams_V2.yaml', 'w') as output_file:
+        with open(f'{main_dir}/RightCameraParams_V2.yaml', 'w') as output_file:
             yaml.dump(right_camera_calibration, output_file, default_flow_style=None)
     else:
         exit(1)

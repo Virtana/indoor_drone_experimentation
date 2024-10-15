@@ -7,7 +7,8 @@ from pathlib import Path
 
 # Connect Device
 with dai.Device() as device:
-    calibFile = str((Path(__file__).parent / Path(f"calib_{device.getMxId()}.json")).resolve().absolute())
+    main_dir = '../../data/ground_truth_generation/Default_Calibration_Data'
+    calibFile = f"{main_dir}/calib_{device.getMxId()}.json"
     if len(sys.argv) > 1:
         calibFile = sys.argv[1]
 

@@ -1,6 +1,6 @@
 {
-    "CALIBRATION_FILE_PATH": "./Default_Calibration_Data/calib_18443010A177F50800.json",
-    "WORKING_DIRECTORY": "./Ground_Truth_Images",
+    "CALIBRATION_FILE_PATH": "../data/ground_truth_generation/Default_Calibration_Data/calib_18443010A177F50800.json",
+    "WORKING_DIRECTORY": "../data/ground_truth_generation/Ground_Truth_Images",
     "SENSOR_RESOLUTION": "depthai.MonoCameraProperties.SensorResolution.THE_400_P",
     "FPS": 4,
     "DELAY": 75,
