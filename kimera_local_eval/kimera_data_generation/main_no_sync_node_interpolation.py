@@ -209,6 +209,10 @@ if __name__ == "__main__":
                     accelerometer_df.to_csv(f'{output_dir_path}/imu0/acc_data_after_interpolation.csv', index=False)
 
                     imu_df = accelerometer_df.merge(gyroscope_df, left_on=x_col, right_on=x_col)
+                    
+                    # Ensuring that columns in the order Kimera-VIO expects!
+                    imu_df = imu_df[['#timestamp [ns]','w_RS_S_x [rad s^-1]', 'w_RS_S_y [rad s^-1]', 'w_RS_S_z [rad s^-1]', 'a_RS_S_x [m s^-2]', 
+                                     'a_RS_S_y [m s^-2]', 'a_RS_S_z [m s^-2]']]
                     imu_df.to_csv(f'{output_dir_path}/imu0/data.csv', index=False)
                     exit(0)
         
