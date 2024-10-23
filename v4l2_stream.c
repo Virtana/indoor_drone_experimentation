@@ -3,12 +3,17 @@
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdbool.h>
+#include <signal.h>
 #include <sys/mman.h>
 #include <sys/ioctl.h>
+#include <sys/time.h>
 #include <unistd.h>
 #include <linux/videodev2.h>
 
 #define NBUF 2
+
+volatile bool running = true;
 
 void query_capabilities(int fd)
 {
@@ -166,6 +171,21 @@ int stop_streaming(int fd)
     return 0;
 }
 
+uint64_t get_timestamp_millis()
+{
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+
+    uint64_t ts_millis = (tv.tv_sec * 1000) + (tv.tv_usec / 1000);
+
+    return ts_millis;
+}
+
+void handle_sig()
+{
+    running = false;
+}
+
 int main()
 {
     unsigned char* buffer[NBUF];
@@ -197,9 +217,12 @@ int main()
     printf("Buffer Size %i\n", size);
     printf("QBuffer Size %i\n", qsize);
 
+    // Set up SIGINT handler to exit image reading loop cleanly
+    signal(SIGINT, handle_sig);
+
     start_streaming(fd);
-    
-    for (int i=0; i < 10; i++)
+
+    while(running)
     {
         fd_set fds;
         FD_ZERO(&fds);
@@ -227,15 +250,18 @@ int main()
 
         queue_buffer(fd, index);
 
-        char fname[12];
-        snprintf(fname, 12, "output%i.raw", i);
+        uint64_t ts = get_timestamp_millis();
+        char img_name[25];
+        snprintf(img_name, 25, "image%lu.raw", ts);
 
-        int file = open(fname, O_RDWR | O_CREAT, 0666);
+        int file = open(img_name, O_RDWR | O_CREAT, 0666);
         write(file, buffer[index], size);
 
-        printf("Created image %s\n", fname);
+        printf("Created image %s\n", img_name);
         close(file);
     }
+
+    printf("Cleaning up\n");
 
     stop_streaming(fd);
 
