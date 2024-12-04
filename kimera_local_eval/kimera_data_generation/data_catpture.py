@@ -191,14 +191,14 @@ if __name__ == "__main__":
         gyroscope_columns = ["#timestamp [ns]", "w_RS_S_x [rad s^-1]", "w_RS_S_y [rad s^-1]", "w_RS_S_z [rad s^-1]"]
         gyroscope_df = pd.DataFrame(gyroscope_data, columns = gyroscope_columns)
         gyroscope_df.to_csv(f'{output_dir_path}/imu0/gyro_data_pre_transform.csv', index=False)
-        transform_sensor_readings(gyroscope_df, sensor_transforms)
-        gyroscope_df.to_csv(f'{output_dir_path}/imu0/gyro_data_post_transform.csv', index=False)
+        # transform_sensor_readings(gyroscope_df, sensor_transforms)
+        # gyroscope_df.to_csv(f'{output_dir_path}/imu0/gyro_data_post_transform.csv', index=False)
 
         accelerometer_columns = ["#timestamp [ns]", "a_RS_S_x [m s^-2]", "a_RS_S_y [m s^-2]", "a_RS_S_z [m s^-2]"]
         accelerometer_df = pd.DataFrame(accelerometer_data, columns = accelerometer_columns)
         accelerometer_df.to_csv(f'{output_dir_path}/imu0/acc_data_pre_transform.csv', index=False)
-        transform_sensor_readings(accelerometer_df, sensor_transforms)
-        accelerometer_df.to_csv(f'{output_dir_path}/imu0/acc_data_post_transform.csv', index=False)
+        # transform_sensor_readings(accelerometer_df, sensor_transforms)
+        # accelerometer_df.to_csv(f'{output_dir_path}/imu0/acc_data_post_transform.csv', index=False)
 
         # Option 1: Interpolate on all of the accelerometer data. 
         # Option 2: If option 1 does not work we can backfill the accelerometer data before interpolation.
