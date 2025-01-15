@@ -8,11 +8,15 @@ MAX_JITTER = int(sys.argv[2])
 WORKING_DIR = sys.argv[3]
 CAMERA_TYPE= sys.argv[4]
 
-def generate_error(mu, sigma):
+def generate_error_normal_dist(mu, sigma):
     error = -1
     while error <0 or error > MAX_JITTER:
         error = np.random.normal(mu, sigma, 1)[0]
     return error
+
+
+def generate_error_uniform_dist(lo, hi):
+    return np.random.uniform(lo, hi, 1)
 
 
 if __name__ == '__main__':
@@ -35,11 +39,14 @@ if __name__ == '__main__':
     mu = MAX_JITTER * 0.5
     sigma = MAX_JITTER/4
 
+    lo = -(MAX_JITTER/2)
+    hi = (MAX_JITTER/2)
+
     default_ts_arr = df['#timestamp [ns]'].values.astype(int)
     steps = np.diff(default_ts_arr)
     adjusted_steps = []
     for step in steps:
-        adjusted_steps.append(step + generate_error(mu, sigma))
+        adjusted_steps.append(step + generate_error_uniform_dist(lo, hi))
 
     adjusted_steps = np.array(adjusted_steps)
     adjusted_steps = np.insert(adjusted_steps, 0, default_ts_arr[0], axis=0)

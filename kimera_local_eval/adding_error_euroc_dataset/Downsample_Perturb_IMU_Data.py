@@ -7,11 +7,31 @@ WRITE_FILES = bool(sys.argv[1])
 MAX_JITTER = int(sys.argv[2])
 WORKING_DIR = sys.argv[3]
 
-def generate_error(mu, sigma):
+def generate_error_normal_dist_pos_neg():
+    mu = 0
+    sigma = MAX_JITTER/2
+    error = (MAX_JITTER/2)+1
+    while error < (-MAX_JITTER/2) or error > (MAX_JITTER/2):
+        error = np.random.normal(mu, sigma, 1)[0]
+    return error
+
+def generate_error_normal_dist_pos():
+    mu = MAX_JITTER/2
+    sigma = MAX_JITTER/4
     error = -1
     while error <0 or error > MAX_JITTER:
         error = np.random.normal(mu, sigma, 1)[0]
     return error
+
+def generate_error_uniform_dist_pos_neg():
+    lo = -(MAX_JITTER/2)
+    hi = (MAX_JITTER/2)
+    return np.random.uniform(lo, hi, 1)
+
+def generate_error_uniform_dist_pos():
+    lo = 0
+    hi = MAX_JITTER
+    return np.random.uniform(lo, hi, 1)
 
 
 if __name__ == '__main__':
@@ -32,15 +52,18 @@ if __name__ == '__main__':
     # Check deltas after downsampling.
     new_deltas = np.unique(np.diff(df['#timestamp [ns]']), return_counts=True)
 
-    mu = MAX_JITTER * 0.5
+    mu = MAX_JITTER/2
     sigma = MAX_JITTER/4
+
+    lo = -(MAX_JITTER/2)
+    hi = (MAX_JITTER/2)
 
     default_ts_arr = df['#timestamp [ns]'].values.astype(int)
 
     steps = np.diff(default_ts_arr)
     adjusted_steps = []
     for step in steps:
-        adjusted_steps.append(step + generate_error(mu, sigma))
+        adjusted_steps.append(step + generate_error_normal_dist_pos())
 
     adjusted_steps = np.array(adjusted_steps)
     adjusted_steps = np.insert(adjusted_steps, 0, default_ts_arr[0], axis=0)

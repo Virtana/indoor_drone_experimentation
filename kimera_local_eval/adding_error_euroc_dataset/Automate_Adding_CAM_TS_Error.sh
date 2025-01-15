@@ -1,7 +1,7 @@
 #!/bin/bash
 
 WRITE_FILES=1
-MAX_JITTER=100_000
+MAX_JITTER=1_000
 WORKING_DIR='/home/shiva/Datasets/V2_01_easy/V2_01_easy'
 
 # Rename old data.csv files in cam0 and cam1 directories.

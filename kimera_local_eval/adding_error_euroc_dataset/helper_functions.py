@@ -186,8 +186,8 @@ def generate_error_gt_vio_pose(gt_df, vio_df, DEBUG=False, SHOW_GRAPHS=False):
             dist_index = dist_travelled_df[dist_travelled_df['gt_index'] == curr_gt_index].index[0]
             distance = dist_travelled_df.loc[dist_index, 'distance']
         except Exception as e:
-            print(f"exception raised, so breaking out of loop: {e}")
-            print(dist_travelled_df[dist_travelled_df['gt_index'] == curr_gt_index])
+            # print(f"exception raised, so breaking out of loop: {e}")
+            # print(dist_travelled_df[dist_travelled_df['gt_index'] == curr_gt_index])
             break   #exit loop, since we are probably out of range
     
         if abs(distance) < 0.001:
