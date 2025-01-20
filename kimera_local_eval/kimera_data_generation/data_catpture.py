@@ -11,6 +11,7 @@ import shutil
 
 from datetime import datetime
 from datetime import timedelta
+from scipy import interpolate
 
 from typing import Tuple, List, Union
 
@@ -104,9 +105,20 @@ def setup_output_directory(output_dir_path: str) -> bool:
         return True
 
 
-def interpolate_data(df: pd.DataFrame, x_col: str, y_col: str, start_stop_range: np.array) -> np.array:
-    interpolated_data = np.interp(start_stop_range, df[x_col], df[y_col])
-    return interpolated_data[0: df.shape[0]]
+def interpolate_data_corrected(df: pd.DataFrame, x_col: str, y_col: str, orig_timestamps: np.array) -> np.array:
+    interpolated_values = []
+    interpolated_values.append(df[y_col].values[0])
+    for orig_timestamp in orig_timestamps[1:]:
+        # print("Looking for: ", orig_timestamp)
+        lower_bound_idx = df[df[x_col] <= orig_timestamp].index.max()
+        upper_bound_idx = df[df[x_col] > orig_timestamp].index.min()
+        # print(f"Found between indicies {lower_bound_idx} and {upper_bound_idx}.")
+        bounds_df = df.iloc[lower_bound_idx: upper_bound_idx+1]
+        # print(bounds_df)
+        interpolation_fn = interpolate.interp1d(bounds_df[x_col].values, bounds_df[y_col].values, kind='linear')
+        # print(interp_fn(orig_timestamp))
+        interpolated_values.append(interpolation_fn(orig_timestamp))
+    return interpolated_values
 
 
 def transform_sensor_readings(df: pd.DataFrame, sensor_transforms: dict) -> None:
@@ -207,8 +219,9 @@ if __name__ == "__main__":
         gyroscope_timestamps = gyroscope_df[x_col].values
         
         for y_col in accelerometer_columns[1:]:
-            interpolated_data = interpolate_data(accelerometer_df, x_col, y_col, gyroscope_timestamps)
+            interpolated_data = interpolate_data_corrected(accelerometer_df, x_col, y_col, gyroscope_timestamps)
             accelerometer_df[y_col] = interpolated_data
+            accelerometer_df[y_col] = accelerometer_df[y_col].apply(lambda x: f"{x:.5f}")
         accelerometer_df[x_col] = gyroscope_timestamps[0:interpolated_data.shape[0]]
 
         accelerometer_df.to_csv(f'{output_dir_path}/imu0/acc_data_post_transform_interpolated.csv', index=False)
@@ -216,8 +229,7 @@ if __name__ == "__main__":
         imu_df = accelerometer_df.merge(gyroscope_df, left_on=x_col, right_on=x_col)
         
         # Ensuring that columns in the order Kimera-VIO expects!
-        
         imu_df = imu_df[['#timestamp [ns]','w_RS_S_x [rad s^-1]', 'w_RS_S_y [rad s^-1]', 'w_RS_S_z [rad s^-1]', 'a_RS_S_x [m s^-2]', 
                             'a_RS_S_y [m s^-2]', 'a_RS_S_z [m s^-2]']]
         imu_df.to_csv(f'{output_dir_path}/imu0/data.csv', index=False)
-        exit(0) 
+        exit(0)

@@ -38,10 +38,10 @@ def load_camera_calibration_data(filename):
 		data = json.load(file_handler)
 		file_handler.close()
 	# The data object is an array representing the three cameras on the OAK-D.
-	# The stereo cameras are idendified by indicies 0 and 1; and the color camera is identified by index 2.
+	# Indicies 1 (left) and 2 (right) represent the mono cameras while index 0 (center) represents the color camera.
 
 	if data is not None:
-		color_camera_calibration = data['cameraData'][0][1]
+		color_camera_calibration = data['cameraData'][1][1]
 		distortion_coeff = np.array(color_camera_calibration['distortionCoeff'])
 		print(distortion_coeff)
 		camera_matrix = np.array(color_camera_calibration['intrinsicMatrix'])
@@ -175,7 +175,6 @@ def detect_apriltag_compute_pose(images_for_processing_paths, april_tag_size, ou
 				cv2.solvePnP(objectPoints=world_pts, imagePoints=image_points, cameraMatrix=camera_matrix_adjusted, distCoeffs=distortion_coeff)
 
 			if solve_pnp_success_result:
-				
 				imagePoints_world, _ = cv2.projectPoints(world_pts, rotation_vector, translation_vector, camera_matrix_adjusted, distortion_coeff)
 				
 				total_error = 0.0
