@@ -1,7 +1,8 @@
 {
-    "SENSOR_RESOLUTION": "depthai.MonoCameraProperties.SensorResolution.THE_400_P",
+    "SENSOR_RESOLUTION": "depthai.MonoCameraProperties.SensorResolution.THE_720_P",
     "IMU_FPS": 200,
-    "CAMERA_FPS": 4,
+    "CAMERA_FPS": 20,
+    "MAX_FRAMES": 5000,
     "X_AXIS_TRANSFORM": -1,
     "Y_AXIS_TRANSFORM": -1,
     "Z_AXIS_TRANSFORM": 1

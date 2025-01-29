@@ -22,7 +22,7 @@ for max_error_ns in "${max_errors[@]}"; do
     # Conducting 6Hz experiments.
     freq='6'
     experiment_dir_name="${max_error_us}us_${freq}Hz"
-    mkdir ../output_logs /data/datasets/Euroc/V2_01_easy/Kimera_VIO_Output/$main_dir_name/$experiment_dir_name
+    mkdir /data/datasets/Euroc/V2_01_easy/Kimera_VIO_Output/$main_dir_name/$experiment_dir_name
     /bin/bash param_mods_6hz.sh
     for i in {1..3}; 
     do
@@ -33,7 +33,7 @@ for max_error_ns in "${max_errors[@]}"; do
     # Conducting 4Hz experiments.
     freq='4'
     experiment_dir_name="${max_error_us}us_${freq}Hz"
-    mkdir ../output_logs /data/datasets/Euroc/V2_01_easy/Kimera_VIO_Output/$main_dir_name/$experiment_dir_name
+    mkdir /data/datasets/Euroc/V2_01_easy/Kimera_VIO_Output/$main_dir_name/$experiment_dir_name
     /bin/bash param_mods_4hz.sh
     for i in {1..3}; 
     do

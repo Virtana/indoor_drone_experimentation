@@ -16,10 +16,6 @@ from scipy import interpolate
 from typing import Tuple, List, Union
 
 
-# Maximum number of camera frames that can be captured.
-MAX_FRAMES = 1000
-
-
 # The following function is used for tracking memory and cpu usage on the OAK-D.
 def printSystemInformation(info):
     m = 1024 * 1024 # MiB
@@ -46,8 +42,8 @@ def create_pipeline(hz: int, fps: int, sensor_resolution: str) -> depthai.Pipeli
     # Define node for IMU data.
     imu = pipeline.create(depthai.node.IMU)
     imu.enableIMUSensor([depthai.IMUSensor.ACCELEROMETER_RAW, depthai.IMUSensor.GYROSCOPE_RAW], hz)
-    imu.setBatchReportThreshold(1)
-    imu.setMaxBatchReports(10)
+    imu.setBatchReportThreshold(20)
+    imu.setMaxBatchReports(20)
 
     # Linking Left Mono Camera.
     xout_left_cam = pipeline.create(depthai.node.XLinkOut)
@@ -112,12 +108,13 @@ def interpolate_data_corrected(df: pd.DataFrame, x_col: str, y_col: str, orig_ti
         # print("Looking for: ", orig_timestamp)
         lower_bound_idx = df[df[x_col] <= orig_timestamp].index.max()
         upper_bound_idx = df[df[x_col] > orig_timestamp].index.min()
-        # print(f"Found between indicies {lower_bound_idx} and {upper_bound_idx}.")
-        bounds_df = df.iloc[lower_bound_idx: upper_bound_idx+1]
-        # print(bounds_df)
-        interpolation_fn = interpolate.interp1d(bounds_df[x_col].values, bounds_df[y_col].values, kind='linear')
-        # print(interp_fn(orig_timestamp))
-        interpolated_values.append(interpolation_fn(orig_timestamp))
+        if np.isnan(lower_bound_idx)==False and np.isnan(upper_bound_idx)==False:
+            bounds_df = df.iloc[lower_bound_idx: upper_bound_idx+1]
+            interpolation_fn = interpolate.interp1d(bounds_df[x_col].values, bounds_df[y_col].values, kind='linear')
+            # print(interp_fn(orig_timestamp))
+            interpolated_values.append(interpolation_fn(orig_timestamp))
+        else:
+            interpolated_values.append(-1)
     return interpolated_values
 
 
@@ -146,10 +143,12 @@ if __name__ == "__main__":
     sensor_resolution = eval(config["SENSOR_RESOLUTION"])
     imu_fps = config["IMU_FPS"]
     camera_fps = int(config["CAMERA_FPS"])
+    max_frames = int(config["MAX_FRAMES"])
     sensor_transforms = {'x_trans': float(config["X_AXIS_TRANSFORM"]), 
                   'y_trans': float(config["Y_AXIS_TRANSFORM"]),
                   'z_trans': float(config["Z_AXIS_TRANSFORM"])
     }
+
 
     # Instantiate necessary variables for storage.
     curr_timestamp = timestamp_now
@@ -165,7 +164,7 @@ if __name__ == "__main__":
         qSysInfo = device.getOutputQueue(name="sysinfo", maxSize=4, blocking=True)
         stream_names = ['imu', 'left']
         print("Starting capture. Press (q) to halt capture and exit the program.")
-        while (num_frames_captured <= MAX_FRAMES-1):
+        while (num_frames_captured <= max_frames-1):
             # sysInfo = qSysInfo.get()
             # printSystemInformation(sysInfo)
             imu_message = device.getOutputQueue(stream_names[0], maxSize=500, blocking=True).tryGet()
@@ -197,6 +196,7 @@ if __name__ == "__main__":
         
         print(f"\nTotal number of frames captured: {num_frames_captured}.")
         cam_df = pd.DataFrame(cam_data, columns = ["#timestamp [ns]", "filename"])
+        cam_df.drop(cam_df.tail(1).index,inplace=True)
         cam_df.to_csv(f'{output_dir_path}/cam0/data.csv', index=False)
         cam_df.to_csv(f'{output_dir_path}/cam1/data.csv', index=False)
 
@@ -222,10 +222,12 @@ if __name__ == "__main__":
             interpolated_data = interpolate_data_corrected(accelerometer_df, x_col, y_col, gyroscope_timestamps)
             accelerometer_df[y_col] = interpolated_data
             accelerometer_df[y_col] = accelerometer_df[y_col].apply(lambda x: f"{x:.5f}")
-        accelerometer_df[x_col] = gyroscope_timestamps[0:interpolated_data.shape[0]]
+        accelerometer_df[x_col] = gyroscope_timestamps[0:len(interpolated_data)]
 
         accelerometer_df.to_csv(f'{output_dir_path}/imu0/acc_data_post_transform_interpolated.csv', index=False)
-
+        
+        accelerometer_df.drop(accelerometer_df.tail(1).index,inplace=True)
+        gyroscope_df.drop(gyroscope_df.tail(1).index,inplace=True)
         imu_df = accelerometer_df.merge(gyroscope_df, left_on=x_col, right_on=x_col)
         
         # Ensuring that columns in the order Kimera-VIO expects!
