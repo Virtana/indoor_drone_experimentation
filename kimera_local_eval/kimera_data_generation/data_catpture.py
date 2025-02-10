@@ -1,19 +1,42 @@
 #!/usr/bin/env python3
 
 import numpy as np
+import numba as nb
 import pandas as pd
 import depthai as depthai
+
 import os
 import cv2
 import json
 import datetime
 import shutil
+from pynput import keyboard
 
 from datetime import datetime
 from datetime import timedelta
 from scipy import interpolate
 
 from typing import Tuple, List, Union
+
+
+''' Packing scheme for RAW10 - MIPI CSI-2
+- 4 pixels: p0[9:0], p1[9:0], p2[9:0], p3[9:0]
+- stored on 5 bytes (byte0..4) as:
+| byte0[7:0] | byte1[7:0] | byte2[7:0] | byte3[7:0] |          byte4[7:0]             |
+|    p0[9:2] |    p1[9:2] |    p2[9:2] |    p3[9:2] | p3[1:0],p2[1:0],p1[1:0],p0[1:0] |
+'''
+# Optimized with 'numba' as otherwise would be extremely slow (55 seconds per frame!)
+@nb.njit(nb.uint16[::1] (nb.uint8[::1], nb.uint16[::1], nb.boolean), parallel=True, cache=True)
+def unpack_raw10(input, out, expand16bit):
+    lShift = 6 if expand16bit else 0
+   #for i in np.arange(input.size // 5): # around 25ms per frame (with numba)
+    for i in nb.prange(input.size // 5): # around  5ms per frame
+        b4 = input[i * 5 + 4]
+        out[i * 4]     = ((input[i * 5]     << 2) | ( b4       & 0x3)) << lShift
+        out[i * 4 + 1] = ((input[i * 5 + 1] << 2) | ((b4 >> 2) & 0x3)) << lShift
+        out[i * 4 + 2] = ((input[i * 5 + 2] << 2) | ((b4 >> 4) & 0x3)) << lShift
+        out[i * 4 + 3] = ((input[i * 5 + 3] << 2) |  (b4 >> 6)       ) << lShift
+    return out
 
 
 # The following function is used for tracking memory and cpu usage on the OAK-D.
@@ -38,6 +61,7 @@ def create_pipeline(hz: int, fps: int, sensor_resolution: str) -> depthai.Pipeli
     monoLeft.setCamera("left")
     monoLeft.setResolution(sensor_resolution)
     monoLeft.setFps(fps)
+    monoLeft.setRawOutputPacked
 
     # Define node for IMU data.
     imu = pipeline.create(depthai.node.IMU)
@@ -48,7 +72,8 @@ def create_pipeline(hz: int, fps: int, sensor_resolution: str) -> depthai.Pipeli
     # Linking Left Mono Camera.
     xout_left_cam = pipeline.create(depthai.node.XLinkOut)
     xout_left_cam.setStreamName("left")
-    monoLeft.out.link(xout_left_cam.input)
+    # Changing from monoLeft.out to monoLeft.raw
+    monoLeft.raw.link(xout_left_cam.input)
 
     # Linking IMU.
     imu_out = pipeline.create(depthai.node.XLinkOut)
@@ -124,6 +149,17 @@ def transform_sensor_readings(df: pd.DataFrame, sensor_transforms: dict) -> None
         df[sensor_col] = df[sensor_col].values * sensor_transform
 
 
+# Function to handle key press events
+def on_press(key):
+    global stop_capture
+    try:
+        if key.char == 'q':  # Check if 'q' is pressed
+            print("'q' pressed. Stopping data capture...")
+            stop_capture = True
+    except AttributeError:
+        pass  # Ignore special keys
+
+
 if __name__ == "__main__":
     # Get date and time for folder creation.
     timestamp_now = datetime.now()
@@ -157,14 +193,25 @@ if __name__ == "__main__":
     accelerometer_data = []
     num_frames_captured = 0
     device = depthai.Device()
+    check_frame_type = True
     with device:
         # Setup pipeline. 
         # Note that by setting IMU hz to 200, we will be capturing and 250 hz and 200 hz for the accelerometer and gyroscope respectively. 
         device.startPipeline(create_pipeline(hz=imu_fps, fps=camera_fps, sensor_resolution=sensor_resolution))
         qSysInfo = device.getOutputQueue(name="sysinfo", maxSize=4, blocking=True)
         stream_names = ['imu', 'left']
+        
+        stop_capture = False
+        # Set up the keyboard listener
+        listener = keyboard.Listener(on_press=on_press)
+        listener.start()
         print("Starting capture. Press (q) to halt capture and exit the program.")
-        while (num_frames_captured <= max_frames-1):
+
+        # Manually adjusting camera exposure and iso.
+        # ctrl = depthai.CameraControl()
+        # ctrl.setManualExposure(1000000000, 100000000)
+
+        while (num_frames_captured <= max_frames-1) and (stop_capture == False):
             # sysInfo = qSysInfo.get()
             # printSystemInformation(sysInfo)
             imu_message = device.getOutputQueue(stream_names[0], maxSize=500, blocking=True).tryGet()
@@ -181,19 +228,28 @@ if __name__ == "__main__":
             cam_message = device.getOutputQueue(stream_names[1], maxSize=500, blocking=True).tryGet()
             if cam_message is not None:
                 num_frames_captured += 1
-                cv_frame = cam_message.getCvFrame()
+                payload = cam_message.getData()
+                unpacked = np.empty(payload.size * 4 // 5, dtype=np.uint16)
+                unpack_raw10(payload, unpacked, expand16bit=False)
                 left_cam_timestamp = time_delta_to_nano_secs((cam_message.getTimestampDevice(depthai.CameraExposureOffset.MIDDLE) + curr_timestamp).timestamp())
-                cv2.imshow("left", cv_frame)
-                cv2.imwrite(f'{output_dir_path}/cam0/data/{left_cam_timestamp}.png', cv_frame)
-                cv2.imwrite(f'{output_dir_path}/cam1/data/{left_cam_timestamp}.png', cv_frame)
-                cam_data.append([left_cam_timestamp, f"{left_cam_timestamp}.png"])
+                filename = f'{output_dir_path}/cam0/data/{left_cam_timestamp}_10bit.raw'
+                unpacked.tofile(filename)
+
+                # The following lines of code are used when reading images processed by the ISP.
+                # cv_frame = cam_message.getCvFrame()
+                # print(type(cv_frame))
+                # if check_frame_type and cam_message.getType() == depthai.RawImgFrame.Type.RAW8:
+                #     print("We are using RAW8 Frames from the Camera!")
+                #     check_frame_type = False
+                # left_cam_timestamp = time_delta_to_nano_secs((cam_message.getTimestampDevice(depthai.CameraExposureOffset.MIDDLE) + curr_timestamp).timestamp())
+                # cv2.imshow("left", cv_frame)
+                # cv2.imwrite(f'{output_dir_path}/cam0/data/{left_cam_timestamp}.png', cv_frame)
+                # cv2.imwrite(f'{output_dir_path}/cam1/data/{left_cam_timestamp}.png', cv_frame)
+                # cam_data.append([left_cam_timestamp, f"{left_cam_timestamp}.png"])
                 if num_frames_captured % 10 == 0:
                     print("\r", end="")
                     print(f"Approximate number of frames captured: {num_frames_captured}.", end="")
 
-            if cv2.waitKey(1) == ord("q"):
-                break
-        
         print(f"\nTotal number of frames captured: {num_frames_captured}.")
         cam_df = pd.DataFrame(cam_data, columns = ["#timestamp [ns]", "filename"])
         cam_df.drop(cam_df.tail(1).index,inplace=True)
@@ -211,9 +267,6 @@ if __name__ == "__main__":
         accelerometer_df.to_csv(f'{output_dir_path}/imu0/acc_data_pre_transform.csv', index=False)
         # transform_sensor_readings(accelerometer_df, sensor_transforms)
         # accelerometer_df.to_csv(f'{output_dir_path}/imu0/acc_data_post_transform.csv', index=False)
-
-        # Option 1: Interpolate on all of the accelerometer data. 
-        # Option 2: If option 1 does not work we can backfill the accelerometer data before interpolation.
 
         x_col = "#timestamp [ns]"
         gyroscope_timestamps = gyroscope_df[x_col].values
