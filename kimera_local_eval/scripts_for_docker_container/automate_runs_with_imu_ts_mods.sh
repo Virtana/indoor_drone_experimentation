@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Ensure that the python script (Downsample_Perturb_IMU_Data) is copier over!
+# Ensure that the python script (Downsample_Perturb_IMU_Data.py) is copied over!
 
 max_errors=(1000 2500 5000 7500 10000 50000 100000)
 
