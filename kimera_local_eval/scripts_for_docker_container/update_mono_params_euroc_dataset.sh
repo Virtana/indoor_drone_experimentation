@@ -2,6 +2,8 @@
 
 rm ../params/EurocMono/LeftCameraParams.yaml
 rm ../params/EurocMono/RightCameraParams.yaml
+rm ../params/EurocMono/ImuParams.yaml
 
 cp ./calibration/Euroc_Dataset/LeftCameraParams.yaml ../params/EurocMono/
 cp ./calibration/Euroc_Dataset/RightCameraParams.yaml ../params/EurocMono/
+cp ./calibration/Euroc_Dataset/ImuParams.yaml ../params/EurocMono/
