@@ -245,7 +245,7 @@ if __name__ == "__main__":
                 # cv2.imshow("left", cv_frame)
                 # cv2.imwrite(f'{output_dir_path}/cam0/data/{left_cam_timestamp}.png', cv_frame)
                 # cv2.imwrite(f'{output_dir_path}/cam1/data/{left_cam_timestamp}.png', cv_frame)
-                # cam_data.append([left_cam_timestamp, f"{left_cam_timestamp}.png"])
+                cam_data.append([left_cam_timestamp, f"{left_cam_timestamp}.png"])
                 if num_frames_captured % 10 == 0:
                     print("\r", end="")
                     print(f"Approximate number of frames captured: {num_frames_captured}.", end="")
