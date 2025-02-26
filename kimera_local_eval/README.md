@@ -5,8 +5,10 @@ Here is a brief explanation of the purpose of each directory.
 There are many packages used across these folders. To avoid conflict with global pip packages, please create a virtual
 environment before installing packages specified in the requirements.txt file.
 
-### Directory Listing
+Note:
+* The package pynput is used to track key presses and halt data capture. If using Wayland, keypresses are not detected in the library.
 
+### Directory Listing
 
 * adding_error_euroc_dataset - This directory contains a series of scripts and notebooks dedicated towards introducing errors into the IMU and Camera timestamps respectively. Their primary purpose is to investigate the how much error is tolerable with Kimera-VIO's before experiencing degraded performance.
 
