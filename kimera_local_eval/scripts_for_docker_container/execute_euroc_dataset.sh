@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Set the keyframe rate.
-./param_mods_5hz.sh
+./param_mods_5Hz.sh
 
 # Copy the relevant parameter files for the MAV's cameras.
 ./update_mono_params_euroc_dataset.sh

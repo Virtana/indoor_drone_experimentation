@@ -1,8 +1,8 @@
 #!/bin/bash
 # Ground truth needs to be disabled in Kimera-VIO before executing!
 
-# Set the keyframe rate.
-./param_mods_5hz.sh
+# Set the keyframe rate as well as other important variables.
+./param_mods_5Hz.sh
 
 # Copy the relevant(based capture on resolution) parameter files for the OAK-D's cameras.
 # The first parameter denotes the resolution (in pixels) our camera's images are captured at.
