@@ -71,13 +71,13 @@ def printSystemInformation(info):
 def create_pipeline(hz: int, fps: int, sensor_resolution: str) -> depthai.Pipeline:
     pipeline = depthai.Pipeline()
 
-    # Define left camera node.
-    monoLeft = pipeline.create(depthai.node.MonoCamera)
-    # Left camera properties.
-    monoLeft.setCamera("left")
-    monoLeft.setResolution(sensor_resolution)
-    monoLeft.setFps(fps)
-    monoLeft.setRawOutputPacked
+    # # Define left camera node.
+    # monoLeft = pipeline.create(depthai.node.MonoCamera)
+    # # Left camera properties.
+    # monoLeft.setCamera("left")
+    # monoLeft.setResolution(sensor_resolution)
+    # monoLeft.setFps(fps)
+    # monoLeft.setRawOutputPacked
 
     # Define node for IMU data.
     imu = pipeline.create(depthai.node.IMU)
@@ -87,11 +87,11 @@ def create_pipeline(hz: int, fps: int, sensor_resolution: str) -> depthai.Pipeli
     imu.setBatchReportThreshold(20)
     imu.setMaxBatchReports(20)
 
-    # Linking Left Mono Camera.
-    xout_left_cam = pipeline.create(depthai.node.XLinkOut)
-    xout_left_cam.setStreamName("left")
-    # Changing from monoLeft.out to monoLeft.raw
-    monoLeft.raw.link(xout_left_cam.input)
+    # # Linking Left Mono Camera.
+    # xout_left_cam = pipeline.create(depthai.node.XLinkOut)
+    # xout_left_cam.setStreamName("left")
+    # # Changing from monoLeft.out to monoLeft.raw
+    # monoLeft.raw.link(xout_left_cam.input)
 
     # Linking IMU.
     imu_out = pipeline.create(depthai.node.XLinkOut)
@@ -232,6 +232,7 @@ if __name__ == "__main__":
     gyroscope_data = []
     accelerometer_data = []
     num_frames_captured = 0
+    num_acc_packets_captured = 0
     device = depthai.Device()
     check_frame_type = True
     with device:
@@ -243,8 +244,8 @@ if __name__ == "__main__":
             )
         )
         qSysInfo = device.getOutputQueue(name="sysinfo", maxSize=4, blocking=True)
-        stream_names = ["imu", "left"]
-
+        # stream_names = ["imu", "left"]
+        stream_names = ["imu"]
         stop_capture = False
         # Set up the keyboard listener
         listener = keyboard.Listener(on_press=on_press)
@@ -263,6 +264,7 @@ if __name__ == "__main__":
             ).tryGet()
             if imu_message is not None:
                 for imu_packet in imu_message.packets:
+                    num_acc_packets_captured += 1
                     (
                         gyroscope_datapoint,
                         gyroscope_time,
@@ -279,72 +281,78 @@ if __name__ == "__main__":
                     accelerometer_datapoint.insert(0, accelerometer_timestamp)
                     gyroscope_data.append(gyroscope_datapoint)
                     accelerometer_data.append(accelerometer_datapoint)
-
-            cam_message = device.getOutputQueue(
-                stream_names[1], maxSize=500, blocking=True
-            ).tryGet()
-            if cam_message is not None:
-                num_frames_captured += 1
-                payload = cam_message.getData()
-                unpacked = np.empty(payload.size * 4 // 5, dtype=np.uint16)
-                unpack_raw10(payload, unpacked, expand16bit=False)
-                left_cam_timestamp = time_delta_to_nano_secs(
-                    (
-                        cam_message.getTimestampDevice(
-                            depthai.CameraExposureOffset.MIDDLE
+                    if num_acc_packets_captured % 10 == 0:
+                        print("\r", end="")
+                        print(
+                            f"Approximate number of accelerometer frames captured: {num_acc_packets_captured}.",
+                            end="",
                         )
-                        + curr_timestamp
-                    ).timestamp()
-                )
-                filename = (
-                    f"{output_dir_path}/cam0/data_raw/{left_cam_timestamp}_10bit.raw"
-                )
-                unpacked.tofile(filename)
-                cam_data.append([left_cam_timestamp, f"{left_cam_timestamp}.png"])
-                if num_frames_captured % 10 == 0:
-                    print("\r", end="")
-                    print(
-                        f"Approximate number of frames captured: {num_frames_captured}.",
-                        end="",
-                    )
 
-        print(f"\nTotal number of frames captured: {num_frames_captured}.")
-        cam_df = pd.DataFrame(cam_data, columns=["#timestamp [ns]", "filename"])
-        # cam_df.drop(cam_df.tail(1).index,inplace=True)
-        cam_df.to_csv(f"{output_dir_path}/cam0/data.csv", index=False)
-        cam_df.to_csv(f"{output_dir_path}/cam1/data.csv", index=False)
+            # cam_message = device.getOutputQueue(
+            #     stream_names[1], maxSize=500, blocking=True
+            # ).tryGet()
+            # if cam_message is not None:
+            #     num_frames_captured += 1
+            #     payload = cam_message.getData()
+            #     unpacked = np.empty(payload.size * 4 // 5, dtype=np.uint16)
+            #     unpack_raw10(payload, unpacked, expand16bit=False)
+            #     left_cam_timestamp = time_delta_to_nano_secs(
+            #         (
+            #             cam_message.getTimestampDevice(
+            #                 depthai.CameraExposureOffset.MIDDLE
+            #             )
+            #             + curr_timestamp
+            #         ).timestamp()
+            #     )
+            #     filename = (
+            #         f"{output_dir_path}/cam0/data_raw/{left_cam_timestamp}_10bit.raw"
+            #     )
+            #     unpacked.tofile(filename)
+            #     cam_data.append([left_cam_timestamp, f"{left_cam_timestamp}.png"])
+            #     if num_frames_captured % 10 == 0:
+            #         print("\r", end="")
+            #         print(
+            #             f"Approximate number of frames captured: {num_frames_captured}.",
+            #             end="",
+            #         )
+
+        # print(f"\nTotal number of frames captured: {num_frames_captured}.")
+        # cam_df = pd.DataFrame(cam_data, columns=["#timestamp [ns]", "filename"])
+        # # cam_df.drop(cam_df.tail(1).index,inplace=True)
+        # cam_df.to_csv(f"{output_dir_path}/cam0/data.csv", index=False)
+        # cam_df.to_csv(f"{output_dir_path}/cam1/data.csv", index=False)
 
         # Clear input buffer since the keypress 'q' would cause the first call of ffmpeg to quit.
         termios.tcflush(sys.stdin, termios.TCIOFLUSH)
 
-        # Convert RAW images to png
-        print("Converting RAW images to png. This may take a few minutes ... ")
-        source_input_dir = f"{output_dir_path}/cam0/data_raw/"
-        source_output_dir = f"{output_dir_path}/cam0/data/"
-        for input_filename in os.listdir(source_input_dir):
-            output_filename = f'{input_filename.split("_")[0]}.png'
-            width = 1280
-            height = 720
-            pixel_format = "gray10le"
-            try:
-                (
-                    ffmpeg.input(  # Construct the FFmpeg command
-                        source_input_dir + input_filename,
-                        format="image2",
-                        pix_fmt=pixel_format,
-                        s=f"{width}x{height}",
-                    )
-                    .output(source_output_dir + output_filename, vframes=1)
-                    .overwrite_output()
-                    .run(capture_stdout=True, capture_stderr=True)
-                )
-            except ffmpeg.Error as e:
-                print("stdout:", e.stdout.decode("utf8"))
-                print("stderr:", e.stderr.decode("utf8"))
-                raise e
+        # # Convert RAW images to png
+        # print("Converting RAW images to png. This may take a few minutes ... ")
+        # source_input_dir = f"{output_dir_path}/cam0/data_raw/"
+        # source_output_dir = f"{output_dir_path}/cam0/data/"
+        # for input_filename in os.listdir(source_input_dir):
+        #     output_filename = f'{input_filename.split("_")[0]}.png'
+        #     width = 1280
+        #     height = 720
+        #     pixel_format = "gray10le"
+        #     try:
+        #         (
+        #             ffmpeg.input(  # Construct the FFmpeg command
+        #                 source_input_dir + input_filename,
+        #                 format="image2",
+        #                 pix_fmt=pixel_format,
+        #                 s=f"{width}x{height}",
+        #             )
+        #             .output(source_output_dir + output_filename, vframes=1)
+        #             .overwrite_output()
+        #             .run(capture_stdout=True, capture_stderr=True)
+        #         )
+        #     except ffmpeg.Error as e:
+        #         print("stdout:", e.stdout.decode("utf8"))
+        #         print("stderr:", e.stderr.decode("utf8"))
+        #         raise e
 
-        # Copy pngs from cam0 to cam1 directory.
-        copy_tree(f"{output_dir_path}/cam0/data/", f"{output_dir_path}/cam1/data/")
+        # # Copy pngs from cam0 to cam1 directory.
+        # copy_tree(f"{output_dir_path}/cam0/data/", f"{output_dir_path}/cam1/data/")
 
         gyroscope_columns = [
             "#timestamp [ns]",
