@@ -14,4 +14,4 @@ mkdir /data/datasets/Euroc/Kimera_VIO_Output/$main_dir_name/$experiment_dir_name
 
 # Execute Kimera-VIO and copy the output_logs directory.
 ./stereoVIOEuroc.bash
-cp -r ../output_logs /data/datasets/Euroc/Kimera_VIO_Output/$main_dir_name/$experiment_dir_name
+cp -r ../output_logs/* /data/datasets/Euroc/Kimera_VIO_Output/$main_dir_name/$experiment_dir_name
