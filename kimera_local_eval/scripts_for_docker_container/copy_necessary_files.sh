@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Variables
-CONTAINER_NAME="loving_golick"
+CONTAINER_NAME="hardcore_mestorf"
 
 LOCAL_PATH="/home/shiva/GitRepos/indoor_drone_experimentation/kimera_local_eval"
 CONTAINER_PATH="/root/Kimera-VIO/scripts"

@@ -8,6 +8,13 @@ environment before installing packages specified in the requirements.txt file.
 Note:
 * The package pynput is used to track key presses and halt data capture. If using Wayland, keypresses are not detected in the library.
 
+
+### Custom Datasets
+* Custom datasets used for testing/experimenting with Kimera-VIO can be found here: (INSERT LINK).
+* Ideally, these datasets should be located in the home directory under the following structure: /home/Datasets/[Contents of Google Drive link]
+* The copy_dir_selection.sh script (found in scripts for dataset directory) should be placed in the Datasets directory and facilitates easy copy and pasting of datasets to be used for Kimera-VIO by placing the selected dataset into the mav0 directory.
+* The directory - Kimera_VIO_Output is where results from Kimera's execution are stored.
+
 ### Directory Listing
 
 * adding_error_euroc_dataset - This directory contains a series of scripts and notebooks dedicated towards introducing errors into the IMU and Camera timestamps respectively. Their primary purpose is to investigate the how much error is tolerable with Kimera-VIO's before experiencing degraded performance.
