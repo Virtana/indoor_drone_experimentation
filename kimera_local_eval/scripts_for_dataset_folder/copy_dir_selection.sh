@@ -61,7 +61,6 @@ cp -r "$SELECTED_SUBDIR/mav0/." "$DEST_DIR/"
 # Check if the copy was successful
 if [ $? -eq 0 ]; then
   echo "Contents of subdirectory '$SELECTED_SUBDIR_NAME/mav0' has been copied to '$DEST_DIR'."
-  touch "current_dataset.txt"
   echo "Current dataset: $SELECTED_SUBDIR" > datasetname.txt 
 else
   echo "Error: Failed to copy subdirectory '$SELECTED_SUBDIR_NAME'."

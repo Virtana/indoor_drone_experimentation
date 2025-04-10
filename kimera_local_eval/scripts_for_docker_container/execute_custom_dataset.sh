@@ -12,7 +12,7 @@
 main_dir_name='Custom_Dataset'
 experiment_dir_name='Home_Office_720p_20Hz_0.25_Keyframe_Custom_Calibration'
 
-mkdir data/datasets/Euroc/Kimera_VIO_Output/$main_dir_name/$experiment_dir_name
+mkdir /data/datasets/Euroc/Kimera_VIO_Output/$main_dir_name/$experiment_dir_name
 
 # Execute Kimera-VIO and copy the output_logs directory.
 ./stereoVIOEuroc.bash
