@@ -26,7 +26,7 @@ There are many packages used across these folders. To avoid conflict with global
     - In the datasets directory, run the copy_dir_selection.sh script - you will select a directory to be loaded into the mav0 directory. Kimera-VIO will load from this directory.
     - In the docker container, within the scripts directory, you will see two main scripts: execute_custom_dataset.sh and execute_euroc_dataset.sh. These scripts are named accordingly. Before executing, ensure that the correct dataset (custom/euroc) is loaded and you should specify a new directory for the results to be stored - this is done using the experiment_dir_name parameter within the scripts.
     - By default, ground truth is dsiabled. You would need to alter the EurocDataProvider.cpp file (uncomment line #458 and comment line #459) such that you enable the use of ground truth. This would be followed by a rebuild of the software.
-    - In some instances, you need to prepend the call of either script with LIBGL_ALWAYS_SOFTWARE=1. This is necessary for 10th Gen Intel Chips.
+    - In some instances, you need to prepend the call of either script with LIBGL_ALWAYS_SOFTWARE=1. From our experiments an error happens with 10th Gen Intel Chips (intel_do_flush_locked failed Input/Output error).
 
 ### Directory Listing
 
