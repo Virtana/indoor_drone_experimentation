@@ -1,7 +1,11 @@
+## Overview
+
 This directory contains a series of scripts and folders for various aspects of the main objective of getting Kimera-VIO working with a custom dataset:
 * creating a custom dataset
 * performing pose estimation with Kimera-VIO
-* investigating pose estimates from Kimera-VIO 
+* investigating pose estimates from Kimera-VIO
+* investigating timing on the OAK-D
+* calibration for OAK-D
 
 Here is a brief explanation of the purpose of each directory.
 
