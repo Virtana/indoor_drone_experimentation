@@ -22,7 +22,7 @@ There are many packages used across these folders. To avoid conflict with global
 * The directory, Kimera_VIO_Output, is where results from Kimera's execution are stored.
 
 
-### Using the Docker Container
+### Running Kimera-VIO
 * The docker container is the easiest way one can use Kimera-VIO. You can follow the instructions on the MIT Kimera-VIO repository (https://github.com/MIT-SPARK/Kimera-VIO) to get setup. Note: When running the make commands ensure that they do not consume all CPU resources (use 'make -j 4' instead). Alternatively, you can use Shiva's docker container (https://drive.google.com/file/d/1O3KQami-WwtALvXe0tHmYZf6P8tiWHUf/view?usp=drive_link).
 * The following outlines the basic steps to execute a custom dataset with Kimera-VIO:
     - Setup docker container.
